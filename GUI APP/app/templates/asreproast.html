@@ -1,0 +1,95 @@
+{% extends 'base.html' %}
+
+{% block title %}AS-REP Roasting | AutoMapper{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <svg viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+  <h1 class="page-title">AS-REP Roasting</h1>
+</div>
+
+<section class="card">
+  <div class="card-header">
+    <svg viewBox="0 0 24 24"><path d="M20 7h-3V4a2 2 0 0 0-2-2H9a2 2 0 0 0-2 2v3H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/></svg>
+    <h1>AS-REP Roasting</h1>
+  </div>
+
+  <div class="tab-bar">
+    <button class="tab-btn active" data-tab="asrep-exploit-tab">Exploit</button>
+    <button class="tab-btn" data-tab="asrep-info-tab">Info</button>
+    <button class="tab-btn" data-tab="asrep-rec-tab">Recommendation</button>
+  </div>
+
+  <div id="asrep-exploit-tab" class="tab-content active">
+    <p class="subtitle">Check for AS-REP Roastable users or dump AS-REP hashes.</p>
+
+    {% if error %}
+    <div class="notice error">{{ error }}</div>
+    {% elif status_message %}
+    <div class="notice">{{ status_message }}</div>
+    {% endif %}
+
+    <div class="output">
+      <div class="output-row">
+        <span class="label">Username</span>
+        <span class="value">{{ creds.username or '—' }}</span>
+      </div>
+      <div class="output-row">
+        <span class="label">Password</span>
+        <span class="value">{{ '*' * (creds.password|length) if creds.password else '—' }}</span>
+      </div>
+      <div class="output-row">
+        <span class="label">Domain</span>
+        <span class="value">{{ creds.domain or '—' }}</span>
+      </div>
+      <div class="output-row">
+        <span class="label">DC IP Address</span>
+        <span class="value">{{ creds.dc_ip or '—' }}</span>
+      </div>
+    </div>
+
+    <form method="POST" class="actions">
+      <button class="btn secondary" name="action" value="check">
+        Check for AS-REP Roasting
+      </button>
+      <button class="btn" name="action" value="exploit">
+        Exploit AS-REP Roasting
+      </button>
+    </form>
+  </div>
+
+  <div id="asrep-info-tab" class="tab-content">
+    <div class="info-panel">
+      <div class="info-header">
+        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+        <h2>About AS-REP Roasting</h2>
+      </div>
+      <p class="info-text">
+        AS-REP Roasting targets Active Directory accounts that have the "Do not require Kerberos preauthentication" flag enabled. When preauthentication is disabled, anyone can send an AS-REQ to the KDC on behalf of that user without proving knowledge of their password. The KDC responds with an AS-REP containing an encrypted portion derived from the user's password hash. An attacker can capture this response and crack it offline to recover the plaintext password. This technique requires only network access to the domain controller — no domain credentials are needed if the target usernames are already known. It is especially dangerous when combined with weak or predictable passwords.
+      </p>
+    </div>
+  </div>
+
+  <div id="asrep-rec-tab" class="tab-content">
+    <div class="info-panel">
+      <div class="info-header">
+        <svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>
+        <h2>Recommendation</h2>
+      </div>
+      <p class="info-text">
+        Ensure Kerberos preauthentication is required for all user accounts — review and remove the "Do not require Kerberos preauthentication" flag wherever it has been set. Enforce strong, complex passwords and use Group Managed Service Accounts (gMSAs) where applicable. Regularly audit accounts with this flag using LDAP queries and monitor for anomalous AS-REQ traffic to detect potential abuse early.
+      </p>
+    </div>
+  </div>
+</section>
+
+{% if results %}
+<section class="card result-card">
+  <div class="card-header">
+    <svg viewBox="0 0 24 24"><path d="M3 5h18v2H3V5zm0 6h18v2H3v-2zm0 6h18v2H3v-2z"/></svg>
+    <h1>AS-REP Roast Results</h1>
+  </div>
+  <pre class="result-box">{{ results | join('\n') }}</pre>
+</section>
+{% endif %}
+{% endblock %}
