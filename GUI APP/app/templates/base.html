@@ -42,7 +42,7 @@
             <div class="nav-section-title">Actions</div>
           </div>
           <a
-            href="{{ url_for('main.exploitation') }}"
+            href="{{ url_for('main.kerberoast') }}"
             class="nav-item {% if request.endpoint == 'main.exploitation' %}active{% endif %}"
           >
             <svg viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
@@ -54,6 +54,13 @@
           >
             <svg viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
             AS-REP Roasting
+          </a>
+          <a
+            href="{{ url_for('main.dcsync') }}"
+            class="nav-item {% if request.endpoint == 'main.dcsync' %}active{% endif %}"
+          >
+            <svg viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+            DCsync Attack
           </a>
         </aside>
 

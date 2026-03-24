@@ -5,10 +5,11 @@ from flask import render_template, request, session
 from . import main_bp
 from ..forms.user_form import UserForm
 from ..utils.helpers import process_user_input
-from ..utils.kerberoast import run_kerberoast
+from ..utils.kerberoast import run_kerberoast, check_kerberoast
 from ..utils.asreproast import run_asreproast
+from ..utils.dcsync import run_dcsync
 
-
+# Index
 @main_bp.route("/", methods=["GET", "POST"])
 def index():
     """Render the main form and handle submissions."""
@@ -38,9 +39,9 @@ def index():
     # Additional logic (e.g., analytics, prefill) can be added here
     return render_template("index.html", form=form)
 
-
-@main_bp.route("/exploitation", methods=["GET", "POST"])
-def exploitation():
+# Exploits
+@main_bp.route("/kerberoast", methods=["GET", "POST"])
+def kerberoast():
     """Render the exploitation actions and handle kerberoast execution."""
     creds = session.get("creds") or {}
     results = []
@@ -58,19 +59,23 @@ def exploitation():
         if missing:
             error = "Please submit credentials and domain settings first."
         else:
-            request_tgs = action == "exploit"
-            results, error = run_kerberoast(
-                domain=creds["domain"],
-                username=creds["username"],
-                password=creds["password"],
-                dc_ip=creds["dc_ip"],
-                request_tgs=request_tgs,
-            )
-            if not results and not error:
-                status_message = "No kerberoastable accounts found."
-
+            if action == "exploit":
+                results = run_kerberoast(
+                    creds["domain"],
+                    creds["username"],
+                    creds["password"],
+                    creds["dc_ip"]
+                )
+            else:
+                results = check_kerberoast(
+                    creds["domain"],
+                    creds["username"],
+                    creds["password"],
+                    creds["dc_ip"]
+                )
+            
     return render_template(
-        "exploitation.html",
+        "kerberoast.html",
         creds=creds,
         results=results,
         error=error,
@@ -79,7 +84,7 @@ def exploitation():
     )
 
 
-@main_bp.route("/exploitation/asreproast", methods=["GET", "POST"])
+@main_bp.route("/asreproast", methods=["GET", "POST"])
 def asreproast():
     """Render the AS-REP Roasting page and handle execution."""
     creds = session.get("creds") or {}
@@ -118,7 +123,52 @@ def asreproast():
         action=action,
     )
 
+@main_bp.route("/dcsync", methods=["GET", "POST"])
+def dcsync():
+    creds = session.get("creds") or {}
+    results = []
+    error = None
+    status_message = None
+    action = None
 
+    if request.method == "POST":
+        action = request.form.get("action")
+
+        missing = [
+            key
+            for key in ("username", "password", "domain", "dc_ip")
+            if not creds.get(key)
+        ]
+
+        if missing:
+            error = "Please submit credentials and domain settings first."
+
+        else:
+            
+            # do exploit
+            if action == "exploit":
+                results = run_dcsync(
+                    creds["domain"],
+                    creds["username"],
+                    creds["password"],
+                    creds["dc_ip"]
+                )
+
+                if results:
+                    status_message = "DCSync attack successful."
+                elif not error:
+                    status_message = "DCSync executed but no Administrator credential found."
+            
+    return render_template(
+        "dcsync.html",
+        creds=creds,
+        results=results,
+        error=error,
+        status_message=status_message,
+        action=action,
+    )
+
+# Others
 @main_bp.route("/health")
 def health():
     """Simple health check endpoint."""

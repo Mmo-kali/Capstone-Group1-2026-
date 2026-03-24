@@ -152,8 +152,12 @@ class ASREPRoast:
                 "-dc-ip",
                 self.dc_ip,
                 "-request",
+<<<<<<< HEAD
                 "-format",
                 "hashcat",
+=======
+                "-format", "hashcat",
+>>>>>>> de5622b (added dcsync and changed kerberoasting to os command)
             ]
         else:
             cmd_parts = [
@@ -162,8 +166,12 @@ class ASREPRoast:
                 "-dc-ip",
                 self.dc_ip,
                 "-request",
+<<<<<<< HEAD
                 "-format",
                 "hashcat",
+=======
+                "-format", "hashcat",
+>>>>>>> de5622b (added dcsync and changed kerberoasting to os command)
             ]
 
         proc = subprocess.run(

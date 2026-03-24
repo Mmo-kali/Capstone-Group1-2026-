@@ -1,0 +1,96 @@
+{% extends 'base.html' %}
+
+{% block title %}Exploitation | AutoMapper{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <svg viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+  <h1 class="page-title">Exploitation</h1>
+</div>
+
+<section class="card">
+  <div class="card-header">
+    <svg viewBox="0 0 24 24"><path d="M20 7h-3V4a2 2 0 0 0-2-2H9a2 2 0 0 0-2 2v3H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/></svg>
+    <h1>DCSync</h1>
+  </div>
+
+  <div class="tab-bar">
+    <button class="tab-btn active" data-tab="exploit-tab">Exploit</button>
+    <button class="tab-btn" data-tab="info-tab">Info</button>
+    <button class="tab-btn" data-tab="rec-tab">Recommendation</button>
+  </div>
+
+  <div id="exploit-tab" class="tab-content active">
+    <p class="subtitle">Check if the user have dcsync privilege.</p>
+
+    {% if error %}
+    <div class="notice error">{{ error }}</div>
+    {% elif status_message %}
+    <div class="notice">{{ status_message }}</div>
+    {% endif %}
+
+    <div class="output">
+      <div class="output-row">
+        <span class="label">Username</span>
+        <span class="value">{{ creds.username or '—' }}</span>
+      </div>
+      <div class="output-row">
+        <span class="label">Password</span>
+        <span class="value">{{ '*' * (creds.password|length) if creds.password else '—' }}</span>
+      </div>
+      <div class="output-row">
+        <span class="label">Domain</span>
+        <span class="value">{{ creds.domain or '—' }}</span>
+      </div>
+      <div class="output-row">
+        <span class="label">DC IP Address</span>
+        <span class="value">{{ creds.dc_ip or '—' }}</span>
+      </div>
+    </div>
+
+    <form method="POST" class="actions">
+      <button class="btn secondary" name="action" value="check">
+        Check for DCSync
+      </button>
+      <button class="btn" name="action" value="exploit">
+        Exploit DCsync
+      </button>
+    </form>
+  </div>
+
+  <div id="info-tab" class="tab-content">
+    <div class="info-panel">
+      <div class="info-header">
+        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+        <h2>About DCSync</h2>
+      </div>
+      <p class="info-text">
+        DCSync privilege allows the user to perform domain replication, allowing user to access AD DS and dump the password hash of all users.
+      </p>
+    </div>
+  </div>
+
+  <div id="rec-tab" class="tab-content">
+    <div class="info-panel">
+      <div class="info-header">
+        <svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>
+        <!--TODO-->
+        <h2>Recommendation</h2>
+      </div>
+      <p class="info-text">
+        Use strong, long passwords for all service accounts and ensure they are rotated regularly, or preferably replace them with Group Managed Service Accounts (gMSAs) that automatically manage and rotate passwords.
+      </p>
+    </div>
+  </div>
+</section>
+
+{% if results %}
+<section class="card result-card">
+  <div class="card-header">
+    <svg viewBox="0 0 24 24"><path d="M3 5h18v2H3V5zm0 6h18v2H3v-2zm0 6h18v2H3v-2z"/></svg>
+    <h1>DCSync Results</h1>
+  </div>
+  <pre class="result-box">{{ results | join('\n') }}</pre>
+</section>
+{% endif %}
+{% endblock %}
