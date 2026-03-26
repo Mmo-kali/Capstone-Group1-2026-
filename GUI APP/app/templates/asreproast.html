@@ -83,13 +83,25 @@
   </div>
 </section>
 
-{% if results %}
 <section class="card result-card">
   <div class="card-header">
-    <svg viewBox="0 0 24 24"><path d="M3 5h18v2H3V5zm0 6h18v2H3v-2zm0 6h18v2H3v-2z"/></svg>
-    <h1>AS-REP Roast Results</h1>
+  <svg viewBox="0 0 24 24">
+    <path d="M3 5h18v2H3V5zm0 6h18v2H3v-2zm0 6h18v2H3v-2z"/>
+  </svg>
+
+  <div class="header-with-tooltip">
+    <h1>AS-REP Roasting Results</h1>
+
+    <div class="tooltip-container">
+      <span class="info-icon">?</span>
+      <span class="tooltip-text">
+        Collected hash can be cracked using tools such as hashcat or john the ripper to retrieve the plain-text password.
+      </span>
+    </div>
   </div>
+</div>
+{% if results %}
   <pre class="result-box">{{ results | join('\n') }}</pre>
-</section>
 {% endif %}
+</section>
 {% endblock %}

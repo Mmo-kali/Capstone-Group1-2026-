@@ -6,8 +6,8 @@ from . import main_bp
 from ..forms.user_form import UserForm
 from ..utils.helpers import process_user_input
 from ..utils.kerberoast import run_kerberoast, check_kerberoast
-from ..utils.asreproast import run_asreproast
-from ..utils.dcsync import run_dcsync
+from ..utils.asreproast import run_asreproast, check_asreproast
+from ..utils.dcsync import run_dcsync, check_dcsync
 
 # Index
 @main_bp.route("/", methods=["GET", "POST"])
@@ -51,11 +51,7 @@ def kerberoast():
 
     if request.method == "POST":
         action = request.form.get("action")
-        missing = [
-            key
-            for key in ("username", "password", "domain", "dc_ip")
-            if not creds.get(key)
-        ]
+        missing = [key for key in ("username", "password", "domain", "dc_ip") if not creds.get(key)]
         if missing:
             error = "Please submit credentials and domain settings first."
         else:
@@ -95,24 +91,24 @@ def asreproast():
 
     if request.method == "POST":
         action = request.form.get("action")
-        missing = [
-            key
-            for key in ("username", "password", "domain", "dc_ip")
-            if not creds.get(key)
-        ]
+        missing = [key for key in ("username", "password", "domain", "dc_ip") if not creds.get(key)]
         if missing:
             error = "Please submit credentials and domain settings first."
         else:
-            request_hash = action == "exploit"
-            results, error = run_asreproast(
-                domain=creds["domain"],
-                username=creds["username"],
-                password=creds["password"],
-                dc_ip=creds["dc_ip"],
-                request_hash=request_hash,
-            )
-            if not results and not error:
-                status_message = "No AS-REP Roastable accounts found."
+            if action == "exploit":
+                results = run_asreproast(
+                    creds["domain"],
+                    creds["username"],
+                    creds["password"],
+                    creds["dc_ip"]
+                )
+            else:
+                results = check_asreproast(
+                    creds["domain"],
+                    creds["username"],
+                    creds["password"],
+                    creds["dc_ip"]
+                )
 
     return render_template(
         "asreproast.html",
@@ -153,7 +149,13 @@ def dcsync():
                     creds["password"],
                     creds["dc_ip"]
                 )
-
+            else:
+                results = check_dcsync(
+                    creds["domain"],
+                    creds["username"],
+                    creds["password"],
+                    creds["dc_ip"]
+                )
                 if results:
                     status_message = "DCSync attack successful."
                 elif not error:

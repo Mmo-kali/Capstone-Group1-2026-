@@ -12,7 +12,6 @@ def run_dcsync(domain, username, password, target):
         capture_output=True,
         text=True
     )
-
     results = []
 
     for line in output.stdout.splitlines():
@@ -21,3 +20,16 @@ def run_dcsync(domain, username, password, target):
             results.append(line)
 
     return results
+
+def check_dcsync(domain, username, password, target):
+    credential = f"{domain}/{username}:{password}@{target}"
+    output = subprocess.run(
+        ["python3", "app/utils/tools/secretsdump.py", credential],
+        capture_output=True,
+        text=True
+    )
+
+    if "rpc_s_access_denied" in output.stdout :
+        return [f"{username} does not have DCSync Privilege"]
+    else:
+        return [f"{username} may have DCSync Privilege"]
