@@ -66,17 +66,12 @@ def index():
             else:
                 error = "Please select a saved profile to use."
         elif form.save_profile.data:
-            profile_name = (form.profile_name.data or "").strip()
-            if not profile_name:
-                username = (form.username.data or "").strip()
-                domain = (form.domain.data or "").strip()
-                if username and domain:
-                    profile_name = f"{username}@{domain}"
-                else:
-                    profile_name = username
+            profile_description = (form.profile_name.data or "").strip()
+            username = (form.username.data or "").strip()
+            profile_name = username
 
             if not profile_name:
-                error = "Profile name is required to save."
+                error = "Username is required to save a profile."
             else:
                 profile_data = {
                     "username": form.username.data or "",
@@ -84,6 +79,7 @@ def index():
                     "domain": form.domain.data or "",
                     "dc_ip": form.dc_ip.data or "",
                     "dc_fqdn": form.dc_fqdn.data or "",
+                    "profile_description": profile_description,
                 }
                 profiles[profile_name] = profile_data
                 session["profiles"] = profiles

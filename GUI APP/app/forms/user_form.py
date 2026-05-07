@@ -9,9 +9,9 @@ class UserForm(FlaskForm):
     """Primary form for collecting user information."""
 
     profile_name = StringField(
-        "Profile Name",
+        "Profile Description",
         validators=[Optional()],
-        render_kw={"placeholder": "Lab admin profile"},
+        render_kw={"placeholder": "Lab admin profile, service account"},
     )
     profile_select = SelectField(
         "Saved Profiles",

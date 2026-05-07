@@ -161,6 +161,27 @@ body {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
+.form .card + .card {
+  margin-top: 28px;
+}
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+  align-items: start;
+}
+
+.card-grid .card {
+  max-width: none;
+}
+
+@media (max-width: 980px) {
+  .card-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .card-header {
   display: flex;
   align-items: center;

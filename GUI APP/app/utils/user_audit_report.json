@@ -1,0 +1,12 @@
+[
+  {
+    "Username": "administrator",
+    "Display Name": "",
+    "Description": "Built-in account for administering the computer/domain",
+    "Password Last Set": "2026-03-05 16:11:47 UTC",
+    "Last Logon Timestamp": "2026-05-06 19:49:49 UTC",
+    "Groups": "Group Policy Creator Owners; Domain Admins; Enterprise Admins; Schema Admins; Administrators",
+    "UAC Flags": "DONT_EXPIRE_PASSWORD",
+    "Special / Dangerous Privileges": "High-risk group: Administrators; High-risk group: Domain Admins; High-risk group: Enterprise Admins; High-risk group: Group Policy Creator Owners; High-risk group: Schema Admins; Password never expires; adminCount=1 / protected or previously privileged account"
+  }
+]

@@ -29,14 +29,14 @@
             class="nav-item {% if request.endpoint == 'main.index' %}active{% endif %}"
           >
             <svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
-            User Configuration
+            Profile Configuration
           </a>
           <a
             href="{{ url_for('main.user_info') }}"
             class="nav-item {% if request.endpoint == 'main.user_info' %}active{% endif %}"
           >
             <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
-            User Info
+            Asset Information
           </a>
           <div class="nav-section">
             <div class="nav-section-title">Actions</div>
