@@ -1,0 +1,31 @@
+Metadata-Version: 2.4
+Name: badauth
+Version: 0.1.6
+Summary: Unified authentication library
+Home-page: https://github.com/CravateRouge/badauth
+Author: Tamas Jos
+Author-email: info@skelsecprojects.com
+Maintainer: Baptiste Crépin
+Maintainer-email: baptiste@cravaterouge.com
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.7
+License-File: LICENSE
+Requires-Dist: unicrypto>=0.0.12
+Requires-Dist: asn1crypto>=1.3.0
+Requires-Dist: asysocks>=0.2.18
+Requires-Dist: kerbad>=0.5.8
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: maintainer
+Dynamic: maintainer-email
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+Unified authentication library

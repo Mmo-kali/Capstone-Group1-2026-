@@ -1,0 +1,17 @@
+[console_scripts]
+badNTPKInit = kerbad.examples.getNT:main
+badS4U2proxy = kerbad.examples.getS4U2proxy:main
+badS4U2self = kerbad.examples.getS4U2self:main
+badTGS = kerbad.examples.getTGS:main
+badTGT = kerbad.examples.getTGT:main
+badasreproast = kerbad.examples.asreproast:main
+badccache2kirbi = kerbad.examples.ccache2kirbi:main
+badccacheedit = kerbad.examples.ccache_editor:main
+badccacheroast = kerbad.examples.ccacheroast:main
+badchangepw = kerbad.examples.changepassword:main
+badcve202233647 = kerbad.examples.CVE_2022_33647:main
+badcve202233679 = kerbad.examples.CVE_2022_33679:main
+badkerb23hashdecrypt = kerbad.examples.kerb23hashdecrypt:main
+badkerberoast = kerbad.examples.spnroast:main
+badkeylist = kerbad.examples.keylist:main
+badkirbi2ccache = kerbad.examples.kirbi2ccache:main

@@ -1,0 +1,2 @@
+[console_scripts]
+unidns = unidns.examples.unidnsclient:main

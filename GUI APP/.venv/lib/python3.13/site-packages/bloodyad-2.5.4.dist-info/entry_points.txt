@@ -1,0 +1,3 @@
+[console_scripts]
+bloodyAD = bloodyAD.main:main
+bloodyad = bloodyAD.main:main

@@ -1,0 +1,31 @@
+Metadata-Version: 2.4
+Name: kerbad
+Version: 0.5.10
+Summary: Kerberos manipulation library in pure Python
+Home-page: https://github.com/CravateRouge/kerbad
+Author: Tamas Jos
+Author-email: info@skelsec.com
+Maintainer: Baptiste Crépin
+Maintainer-email: baptiste@cravaterouge.com
+Classifier: Programming Language :: Python :: 3.6
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.6
+License-File: LICENSE
+Requires-Dist: asn1crypto>=1.5.1
+Requires-Dist: cryptography>=44.0.2
+Requires-Dist: asysocks>=0.2.18
+Requires-Dist: unicrypto>=0.0.12
+Requires-Dist: tqdm
+Requires-Dist: six
+Requires-Dist: dnspython>=2.7.0
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: maintainer
+Dynamic: maintainer-email
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary

@@ -1,0 +1,39 @@
+Metadata-Version: 2.4
+Name: badldap
+Version: 0.7.5
+Summary: Python library to play with MS LDAP
+Home-page: https://github.com/CravateRouge/badldap
+Author: Tamas Jos
+Author-email: info@skelsecprojects.com
+Maintainer: Baptiste Crépin
+Maintainer-email: baptiste@cravaterouge.com
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.7
+License-File: LICENSE
+Requires-Dist: unicrypto>=0.0.12
+Requires-Dist: badauth>=0.1.6
+Requires-Dist: asysocks>=0.2.18
+Requires-Dist: asn1crypto>=1.3.0
+Requires-Dist: winacl>=0.1.8
+Requires-Dist: prompt-toolkit>=3.0.2
+Requires-Dist: tqdm
+Requires-Dist: wcwidth
+Requires-Dist: tabulate
+Requires-Dist: unidns>=0.0.3
+Requires-Dist: dnspython>=2.7.0
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: maintainer
+Dynamic: maintainer-email
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+Python library to play with MS LDAP

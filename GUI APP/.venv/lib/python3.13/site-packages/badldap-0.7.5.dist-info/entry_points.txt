@@ -1,0 +1,3 @@
+[console_scripts]
+badldap = badldap.examples.msldapclient:main
+badldap-bloodhound = badldap.examples.msldapbloodhound:main
