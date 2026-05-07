@@ -3,7 +3,7 @@
 ## Group Members
 - Michael Nolk [@Mmo-kali](https://github.com/Mmo-kali) | [Linkedin](https://www.linkedin.com/in/michaelnolk/)
 - Micah Joshua Rahardjo [@Gikyon](https://github.com/Gikyon) | [Linkedin](https://www.linkedin.com/in/micahrahardjo/)
-- Orlando Companioni [@OrlandoCompC](https://github.com/OrlandoCompC) | [Linkedin](https://www.linkedin.com/in/orlando-companioni/)
+- Orlando Companioni Castro [@OrlandoCompC](https://github.com/OrlandoCompC) | [Linkedin](https://www.linkedin.com/in/orlando-companioni/)
 - Prajwal Nautiyal [@PrajwalNa](https://github.com/PrajwalNa) | [Linkedin](https://www.linkedin.com/in/prajwal-n-19205624a/)
 
 
