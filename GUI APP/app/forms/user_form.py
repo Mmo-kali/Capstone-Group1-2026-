@@ -1,12 +1,23 @@
 """WTForms definitions for user input."""
 
 from flask_wtf import FlaskForm
-from wtforms import PasswordField, StringField, SubmitField
+from wtforms import PasswordField, SelectField, StringField, SubmitField
 from wtforms.validators import Optional
 
 
 class UserForm(FlaskForm):
     """Primary form for collecting user information."""
+
+    profile_name = StringField(
+        "Profile Name",
+        validators=[Optional()],
+        render_kw={"placeholder": "Lab admin profile"},
+    )
+    profile_select = SelectField(
+        "Saved Profiles",
+        choices=[],
+        validators=[Optional()],
+    )
 
     username = StringField(
         "Username",
@@ -33,6 +44,7 @@ class UserForm(FlaskForm):
         validators=[Optional()],
         render_kw={"placeholder": "dc01.example.com"},
     )
-    submit = SubmitField("Submit")
+    save_profile = SubmitField("Save Profile")
+    activate_profile = SubmitField("Use Profile")
 
     # Additional fields and validation logic can be added here

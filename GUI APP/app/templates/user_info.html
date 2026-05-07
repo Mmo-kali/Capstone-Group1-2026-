@@ -14,6 +14,15 @@
     <h1>User Information</h1>
   </div>
 
+  {% if active_profile %}
+  <div class="output">
+    <div class="output-row">
+      <span class="label">Active Profile</span>
+      <span class="value">{{ active_profile }}</span>
+    </div>
+  </div>
+  {% endif %}
+
   {% if creds.username %}
   <div class="output">
     <div class="output-row">
@@ -23,6 +32,15 @@
   </div>
   {% else %}
   <div class="notice">No user configured yet. Please submit credentials on the <a href="{{ url_for('main.index') }}" style="color: var(--accent-light);">User Configuration</a> page first.</div>
+  {% endif %}
+
+  {% if profiles %}
+  <div class="output">
+    <div class="output-row">
+      <span class="label">Saved Profiles</span>
+      <span class="value">{{ profiles.keys()|list|join(', ') }}</span>
+    </div>
+  </div>
   {% endif %}
 </section>
 {% endblock %}
