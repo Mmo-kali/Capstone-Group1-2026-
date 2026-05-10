@@ -1,9 +1,17 @@
 """Main routes for the Flask application."""
 
-from flask import render_template, request, session
+from flask import render_template, request
 
 from . import main_bp
 from ..forms.user_form import UserForm
+from ..db.database import (
+    fetch_profiles,
+    fetch_vault_users,
+    get_active_profile,
+    get_profile,
+    set_active_profile,
+    upsert_profile,
+)
 from ..utils.helpers import process_user_input
 from ..utils.asreproast import check_asreproast, run_asreproast
 from ..utils.dcsync import check_dcsync, run_dcsync
@@ -13,7 +21,10 @@ REQUIRED_CRED_KEYS = ("username", "password", "domain", "dc_ip")
 
 
 def _get_creds():
-    return session.get("creds") or {}
+    active_profile = get_active_profile()
+    if not active_profile:
+        return {}
+    return get_profile(active_profile) or {}
 
 
 def _missing_creds(creds):
@@ -35,8 +46,8 @@ def _render_exploit(template, creds, results, error, status_message, action):
 def index():
     """Render the main form and handle submissions."""
     form = UserForm()
-    profiles = session.get("profiles") or {}
-    active_profile = session.get("active_profile")
+    profiles = fetch_profiles()
+    active_profile = get_active_profile()
     status_message = None
     error = None
 
@@ -45,8 +56,7 @@ def index():
     ]
 
     def apply_profile(profile_name, profile_data):
-        session["active_profile"] = profile_name
-        session["creds"] = profile_data
+        set_active_profile(profile_name)
         form.username.data = profile_data.get("username", "")
         form.password.data = profile_data.get("password", "")
         form.domain.data = profile_data.get("domain", "")
@@ -81,8 +91,8 @@ def index():
                     "dc_fqdn": form.dc_fqdn.data or "",
                     "profile_description": profile_description,
                 }
-                profiles[profile_name] = profile_data
-                session["profiles"] = profiles
+                upsert_profile(profile_name, profile_data)
+                profiles = fetch_profiles()
                 apply_profile(profile_name, profile_data)
 
                 result = process_user_input(
@@ -105,7 +115,7 @@ def index():
         profiles=profiles,
     )
 
-# Exploits
+############################### Exploits ###############################
 @main_bp.route("/kerberoast", methods=["GET", "POST"])
 def kerberoast():
     """Render the exploitation actions and handle kerberoast execution."""
@@ -121,7 +131,10 @@ def kerberoast():
         if missing:
             error = "Please submit credentials and domain settings first."
         else:
-            if action == "exploit":
+            if action == "crack":
+                target_user = request.form.get("target_user") or "Unknown"
+                status_message = f"Cracking is disabled in this build. ({target_user})"
+            elif action == "exploit":
                 results = run_kerberoast(
                     creds["domain"],
                     creds["username"],
@@ -241,11 +254,18 @@ def health():
 def user_info():
     """Display stored user information."""
     creds = _get_creds()
-    profiles = session.get("profiles") or {}
-    active_profile = session.get("active_profile")
+    profiles = fetch_profiles()
+    active_profile = get_active_profile()
     return render_template(
         "user_info.html",
         creds=creds,
         profiles=profiles,
         active_profile=active_profile,
     )
+
+
+@main_bp.route("/vault")
+def vault():
+    """Display stored hashes and crack status."""
+    users = fetch_vault_users()
+    return render_template("vault.html", users=users)

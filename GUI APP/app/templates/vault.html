@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+
+{% block title %}Vault | AutoMapper{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <svg viewBox="0 0 24 24"><path d="M12 2l4 4h4v14H4V6h4l4-4zm0 3.41L9.41 6h5.18L12 5.41zM6 8v10h12V8H6z"/></svg>
+  <h1 class="page-title">Vault</h1>
+</div>
+
+<section class="card">
+  <div class="card-header">
+    <svg viewBox="0 0 24 24"><path d="M3 5h18v2H3V5zm0 6h18v2H3v-2zm0 6h18v2H3v-2z"/></svg>
+    <h1>Stored Hashes</h1>
+  </div>
+
+  {% if users %}
+  <div class="output">
+    {% for user in users %}
+    <div class="output-row" style="align-items: flex-start; flex-direction: column; gap: 0.75rem;">
+      <div style="display: flex; justify-content: space-between; width: 100%; gap: 1rem; flex-wrap: wrap;">
+        <span class="label">{{ user.username }}</span>
+        <span class="value">{{ user.timestamp or '—' }}</span>
+      </div>
+      <div style="display: flex; justify-content: space-between; width: 100%; gap: 1rem; flex-wrap: wrap;">
+        <span class="value">Status: {{ user.status }}</span>
+      </div>
+
+      <div style="display: grid; gap: 0.75rem; width: 100%;">
+        <div>
+          <span class="label">Kerberoast</span>
+          <pre class="result-box" style="width: 100%; margin: 0; white-space: pre-wrap; word-break: break-all;">{{ user.kerberos_hash or '' }}</pre>
+        </div>
+        <div>
+          <span class="label">AS-REP</span>
+          <pre class="result-box" style="width: 100%; margin: 0; white-space: pre-wrap; word-break: break-all;">{{ user.asrep_hash or '' }}</pre>
+        </div>
+        <div>
+          <span class="label">DCSync</span>
+          <pre class="result-box" style="width: 100%; margin: 0; white-space: pre-wrap; word-break: break-all;">{{ user.ntlm_hash or '' }}</pre>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="notice">No hashes stored yet. Run kerberoasting, AS-REP roasting, or DCSync to populate the vault.</div>
+  {% endif %}
+</section>
+{% endblock %}

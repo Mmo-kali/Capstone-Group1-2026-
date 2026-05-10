@@ -22,8 +22,11 @@ def create_app() -> Flask:
 
     # Register blueprints
     from .routes import main_bp
+    from .db.database import init_db
 
     app.register_blueprint(main_bp)
+
+    init_db()
 
     # Additional setup logic can be added here
 

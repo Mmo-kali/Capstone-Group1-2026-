@@ -1,4 +1,7 @@
+from datetime import datetime, timezone
 import subprocess
+
+from ..db.database import upsert_user_hash
 # run_kerberoast('gikyon.local', 'Administrator', 'Admin@123', '192.168.80.132')
 # app/utils/
 def check_asreproast(domain, username, password, target_ip):
@@ -32,7 +35,27 @@ def run_asreproast(domain, username, password, target_ip):
     result = []
 
     for line in output.stdout.splitlines():
-        if '$krb5asrep$' in line:
+        if "$krb5asrep$" in line:
+            parsed = _parse_asreproast_hash(line)
+            if parsed:
+                timestamp = datetime.now(timezone.utc).isoformat()
+                upsert_user_hash(parsed["username"], "asrepHash", parsed["hash"], timestamp)
             result.append(line)
     
     return result
+
+
+def _parse_asreproast_hash(hash_line):
+    parts = hash_line.split("$")
+    if len(parts) < 4:
+        return None
+
+    user_part = parts[3]
+    if "@" not in user_part:
+        return None
+
+    username = user_part.split("@", 1)[0].lstrip("*")
+    if not username:
+        return None
+
+    return {"username": username, "hash": hash_line}

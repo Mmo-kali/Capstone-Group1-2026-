@@ -19,6 +19,10 @@ from pathlib import Path
 import subprocess
 import sys
 import venv
+from app.db.database import init_db
+
+# database initialization
+init_db()
 
 
 def _run(cmd: list[str], *, cwd: Path) -> None:
