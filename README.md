@@ -58,7 +58,25 @@
 # What was completed in the second term 
 
 ### Week 2 - (2026-05-10)
-- **Added a new endpoint for the Cracking Station (Hashcat):**  
-  A new endpoint was created for the Cracking Station to enhance functionality. This allows users to interact directly with the Cracking Station for processing and validating obtained hashes, improving the user experience and operational capabilities.
+- **Major Feature: Hashcat Integration Added**  
+  Integrated Hashcat into the application, enabling users to perform password hash cracking directly through the Cracking Station. This significantly expands the tool’s capabilities for automated hash analysis and validation.
 
-_Refer to commit: [Added a new endpoint for the Cracking Station - 2026-05-10](https://github.com/Mmo-kali/Capstone-Group1-2026-/commit/0e7f5a4286d0963912898cc1529690218df641ff)_
+- **Added a new endpoint for the Cracking Station:**  
+  Implemented an additional endpoint to support Cracking Station features, allowing efficient processing and analysis of obtained hashes.
+
+- **Added flushing mechanism and improved cracking workflow:**  
+  Introduced a flushing mechanism and enhancements to the hash cracking process for more reliable results.
+
+- **Database implemented:**  
+  Set up and integrated a database to support persistent storage of application data.
+
+- **Repository cleanup:**  
+  Removed outdated or unnecessary files to keep the codebase clean.
+
+_Commit references:_  
+- [readme update: Added a new endpoint for the Cracking Station](https://github.com/Mmo-kali/Capstone-Group1-2026-/commit/0e7f5a4286d0963912898cc1529690218df641ff)  
+- [added flushing mechanism and cracking](https://github.com/Mmo-kali/Capstone-Group1-2026-/commit/d4cd171b7fe9b523f1f5d4537cadf8852392d37c)  
+- [database implemented](https://github.com/Mmo-kali/Capstone-Group1-2026-/commit/285a68f6d12cce846e93536291b9eb0a370a941c)  
+- [Delete junk](https://github.com/Mmo-kali/Capstone-Group1-2026-/commit/f8767e0cdad0918b852bca812c37ab837fe79eb1)
+
+---
