@@ -46,5 +46,6 @@ class UserForm(FlaskForm):
     )
     save_profile = SubmitField("Save Profile")
     activate_profile = SubmitField("Use Profile")
+    flush_profiles = SubmitField("Flush Profiles")
 
     # Additional fields and validation logic can be added here

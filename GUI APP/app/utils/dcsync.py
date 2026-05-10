@@ -40,7 +40,14 @@ def run_dcsync(domain, username, password, target):
             if parsed:
                 timestamp = datetime.now(timezone.utc).isoformat()
                 upsert_user_hash(parsed["username"], "ntlmHash", parsed["hash"], timestamp)
-            results.append(line)
+                parsed["timestamp"] = timestamp
+                results.append(parsed)
+            else:
+                results.append({
+                    "username": "Unknown",
+                    "hash": line,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                })
 
     if not results:
         return ["DCSync ran but no credential material was returned."]
@@ -54,6 +61,8 @@ def _parse_dcsync_hash(line):
         return None
 
     username = parts[0]
+    if "\\" in username:
+        username = username.split("\\", 1)[1]
     ntlm_hash = parts[3]
     if not username or not ntlm_hash:
         return None

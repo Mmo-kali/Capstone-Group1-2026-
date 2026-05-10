@@ -101,7 +101,23 @@
   </div>
 </div>
 {% if results %}
+  {% if action == 'exploit' %}
+  <div class="output">
+    {% for entry in results %}
+    <div class="output-row" style="align-items: flex-start; flex-direction: column; gap: 0.5rem;">
+      <div style="display: flex; justify-content: space-between; width: 100%; gap: 1rem;">
+        <span class="label">{{ entry.username }}</span>
+        <span class="value">{{ entry.timestamp or '—' }}</span>
+      </div>
+      <div style="display: flex; width: 100%; gap: 0.75rem; flex-wrap: wrap; align-items: flex-start;">
+        <pre class="result-box" style="flex: 1 1 320px; margin: 0; white-space: pre-wrap; word-break: break-all;">{{ entry.hash }}</pre>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
   <pre class="result-box">{{ results | join('\n') }}</pre>
+  {% endif %}
 {% endif %}
 </section>
 {% endblock %}

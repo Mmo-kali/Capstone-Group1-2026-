@@ -200,6 +200,19 @@ def set_active_profile(profile_name):
         conn.close()
 
 
+def clear_profiles():
+    conn = get_db()
+    try:
+        conn.execute("DELETE FROM profiles")
+        conn.execute(
+            "DELETE FROM app_state WHERE key = ?",
+            ("active_profile",),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
 def user_exists(username):
     conn = get_db()
     try:
@@ -234,6 +247,29 @@ def upsert_user_hash(username, hash_field, hash_value, timestamp):
         conn.close()
 
 
+def update_user_password(username, password):
+    if not username or not password:
+        return
+    conn = get_db()
+    try:
+        conn.execute(
+            "UPDATE users SET password = ? WHERE username = ?",
+            (password, username),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def clear_vault():
+    conn = get_db()
+    try:
+        conn.execute("DELETE FROM users")
+        conn.commit()
+    finally:
+        conn.close()
+
+
 def fetch_vault_users():
     conn = get_db()
     try:
@@ -247,16 +283,51 @@ def fetch_vault_users():
     finally:
         conn.close()
 
-    entries = []
-    for row in rows:
-        entries.append({
-            "username": row["username"],
-            "kerberos_hash": row["kerberosHash"],
-            "asrep_hash": row["asrepHash"],
-            "ntlm_hash": row["ntlmHash"],
-            "timestamp": row["lastSet"],
-            "status": "Cracked" if row["password"] else "Uncracked",
-        })
+    ui_blacklist = {"guest", "krbtgt"}
 
+    def normalize_username(value):
+        if not value:
+            return value
+        return value.split("\\", 1)[-1]
+
+    entries_by_user = {}
+    for row in rows:
+        username = normalize_username(row["username"])
+        if not username or username.lower() in ui_blacklist:
+            continue
+        entry = entries_by_user.get(username)
+
+        if not entry:
+            entry = {
+                "username": username,
+                "kerberos_hash": row["kerberosHash"],
+                "asrep_hash": row["asrepHash"],
+                "ntlm_hash": row["ntlmHash"],
+                "password": row["password"],
+                "timestamp": row["lastSet"],
+            }
+            entries_by_user[username] = entry
+            continue
+
+        if not entry.get("kerberos_hash") and row["kerberosHash"]:
+            entry["kerberos_hash"] = row["kerberosHash"]
+        if not entry.get("asrep_hash") and row["asrepHash"]:
+            entry["asrep_hash"] = row["asrepHash"]
+        if not entry.get("ntlm_hash") and row["ntlmHash"]:
+            entry["ntlm_hash"] = row["ntlmHash"]
+        if not entry.get("password") and row["password"]:
+            entry["password"] = row["password"]
+
+        existing_ts = entry.get("timestamp") or ""
+        new_ts = row["lastSet"] or ""
+        if new_ts > existing_ts:
+            entry["timestamp"] = row["lastSet"]
+
+    entries = []
+    for entry in entries_by_user.values():
+        entry["status"] = "Cracked" if entry.get("password") else "Uncracked"
+        entries.append(entry)
+
+    entries.sort(key=lambda item: (item.get("username") or ""))
     return entries
 

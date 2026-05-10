@@ -1,5 +1,7 @@
 """Main routes for the Flask application."""
 
+import subprocess
+
 from flask import render_template, request
 
 from . import main_bp
@@ -10,12 +12,20 @@ from ..db.database import (
     get_active_profile,
     get_profile,
     set_active_profile,
+    clear_vault,
+    clear_profiles,
+    update_user_password,
     upsert_profile,
 )
 from ..utils.helpers import process_user_input
 from ..utils.asreproast import check_asreproast, run_asreproast
 from ..utils.dcsync import check_dcsync, run_dcsync
-from ..utils.kerberoast import check_kerberoast, run_kerberoast
+from ..utils.kerberoast import (
+    HashcatRunnerError,
+    crack_hash_value,
+    check_kerberoast,
+    run_kerberoast,
+)
 
 REQUIRED_CRED_KEYS = ("username", "password", "domain", "dc_ip")
 
@@ -75,6 +85,18 @@ def index():
                 status_message = f"Using profile: {selected}"
             else:
                 error = "Please select a saved profile to use."
+        elif form.flush_profiles.data:
+            clear_profiles()
+            profiles = {}
+            form.profile_select.choices = [("", "Select a profile")]
+            form.profile_select.data = ""
+            form.username.data = ""
+            form.password.data = ""
+            form.domain.data = ""
+            form.dc_ip.data = ""
+            form.dc_fqdn.data = ""
+            form.profile_name.data = ""
+            status_message = "All profiles cleared."
         elif form.save_profile.data:
             profile_description = (form.profile_name.data or "").strip()
             username = (form.username.data or "").strip()
@@ -264,8 +286,79 @@ def user_info():
     )
 
 
-@main_bp.route("/vault")
+@main_bp.route("/vault", methods=["GET", "POST"])
 def vault():
     """Display stored hashes and crack status."""
     users = fetch_vault_users()
-    return render_template("vault.html", users=users)
+    selected_username = request.args.get("username")
+    if not selected_username and users:
+        selected_username = users[0]["username"]
+    status_message = None
+    error = None
+    cracked_lines = []
+
+    if request.method == "POST":
+        action = request.form.get("action")
+        hash_type = request.form.get("hash_type")
+        username = request.form.get("username")
+        if username:
+            selected_username = username
+
+        if action == "crack":
+            if not hash_type or not username:
+                error = "Missing hash metadata for cracking request."
+            else:
+                hash_fields = {
+                    "kerberoast": "kerberos_hash",
+                    "asrep": "asrep_hash",
+                    "dcsync": "ntlm_hash",
+                }
+                hash_field = hash_fields.get(hash_type)
+                target = next((user for user in users if user["username"] == username), None)
+                hash_value = target.get(hash_field) if target and hash_field else None
+
+                if not hash_value:
+                    error = f"No {hash_type} hash available for {username}."
+                else:
+                    try:
+                        result = crack_hash_value(
+                            hash_value,
+                            hash_type,
+                            timeout_seconds=60,
+                        )
+                        cracked_lines = result.cracked
+                        if cracked_lines:
+                            password = None
+                            for line in cracked_lines:
+                                if ":" not in line:
+                                    continue
+                                _, password = line.rsplit(":", 1)
+                                if password:
+                                    break
+                            if password:
+                                update_user_password(username, password)
+                                users = fetch_vault_users()
+                            status_message = f"Cracked {len(cracked_lines)} hash(es) for {username}."
+                        else:
+                            status_message = f"No hashes cracked for {username}."
+                    except (HashcatRunnerError, subprocess.TimeoutExpired) as exc:
+                        error = f"Cracking failed: {exc}"
+        elif action == "flush":
+            clear_vault()
+            users = []
+            status_message = "Password Vault cleared."
+
+    selected_user = next(
+        (user for user in users if user["username"] == selected_username),
+        None,
+    )
+
+    return render_template(
+        "vault.html",
+        users=users,
+        selected_user=selected_user,
+        selected_username=selected_username,
+        status_message=status_message,
+        error=error,
+        cracked_lines=cracked_lines,
+    )

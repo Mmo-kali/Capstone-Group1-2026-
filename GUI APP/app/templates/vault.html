@@ -1,48 +1,104 @@
 {% extends 'base.html' %}
 
-{% block title %}Vault | AutoMapper{% endblock %}
+{% block title %}Password Vault | AutoMapper{% endblock %}
 
 {% block content %}
 <div class="page-header">
   <svg viewBox="0 0 24 24"><path d="M12 2l4 4h4v14H4V6h4l4-4zm0 3.41L9.41 6h5.18L12 5.41zM6 8v10h12V8H6z"/></svg>
-  <h1 class="page-title">Vault</h1>
+  <h1 class="page-title">Password Vault</h1>
 </div>
 
-<section class="card">
+<section class="card wide">
   <div class="card-header">
     <svg viewBox="0 0 24 24"><path d="M3 5h18v2H3V5zm0 6h18v2H3v-2zm0 6h18v2H3v-2z"/></svg>
     <h1>Stored Hashes</h1>
+    <form method="POST" style="margin-left: auto;">
+      <button class="btn danger" name="action" value="flush" type="submit">
+        Flush Password Vault
+      </button>
+    </form>
   </div>
 
+  {% if error %}
+  <div class="notice error">{{ error }}</div>
+  {% elif status_message %}
+  <div class="notice">{{ status_message }}</div>
+  {% endif %}
+
+  {% if cracked_lines %}
+  <pre class="result-box" style="margin-top: 12px;">{{ cracked_lines | join('\n') }}</pre>
+  {% endif %}
+
   {% if users %}
+  <form method="GET" class="form" style="margin-bottom: 16px;">
+    <div class="field" style="max-width: 360px;">
+      <label for="vault-user-select">Select user</label>
+      <select id="vault-user-select" name="username" class="input" onchange="this.form.submit()">
+        {% for user in users %}
+        <option value="{{ user.username }}" {% if selected_username == user.username %}selected{% endif %}>
+          {{ user.username }}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+  </form>
+
+  {% if selected_user %}
   <div class="output">
-    {% for user in users %}
     <div class="output-row" style="align-items: flex-start; flex-direction: column; gap: 0.75rem;">
       <div style="display: flex; justify-content: space-between; width: 100%; gap: 1rem; flex-wrap: wrap;">
-        <span class="label">{{ user.username }}</span>
-        <span class="value">{{ user.timestamp or '—' }}</span>
+        <span class="label">{{ selected_user.username }}</span>
+        <span class="value">{{ selected_user.timestamp or '—' }}</span>
       </div>
       <div style="display: flex; justify-content: space-between; width: 100%; gap: 1rem; flex-wrap: wrap;">
-        <span class="value">Status: {{ user.status }}</span>
+        <span class="value">Status: {{ selected_user.status }}</span>
+        <span class="value">Password: {{ selected_user.password or '—' }}</span>
       </div>
 
       <div style="display: grid; gap: 0.75rem; width: 100%;">
         <div>
-          <span class="label">Kerberoast</span>
-          <pre class="result-box" style="width: 100%; margin: 0; white-space: pre-wrap; word-break: break-all;">{{ user.kerberos_hash or '' }}</pre>
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;">
+            <span class="label">Kerberoast</span>
+            {% if selected_user.kerberos_hash %}
+            <form method="POST" style="margin: 0;">
+              <input type="hidden" name="hash_type" value="kerberoast">
+              <input type="hidden" name="username" value="{{ selected_user.username }}">
+              <button class="btn small" name="action" value="crack">Crack</button>
+            </form>
+            {% endif %}
+          </div>
+          <pre class="result-box" style="width: 100%; margin: 0; white-space: pre-wrap; word-break: break-all;">{{ selected_user.kerberos_hash or '—' }}</pre>
         </div>
         <div>
-          <span class="label">AS-REP</span>
-          <pre class="result-box" style="width: 100%; margin: 0; white-space: pre-wrap; word-break: break-all;">{{ user.asrep_hash or '' }}</pre>
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;">
+            <span class="label">AS-REP</span>
+            {% if selected_user.asrep_hash %}
+            <form method="POST" style="margin: 0;">
+              <input type="hidden" name="hash_type" value="asrep">
+              <input type="hidden" name="username" value="{{ selected_user.username }}">
+              <button class="btn small" name="action" value="crack">Crack</button>
+            </form>
+            {% endif %}
+          </div>
+          <pre class="result-box" style="width: 100%; margin: 0; white-space: pre-wrap; word-break: break-all;">{{ selected_user.asrep_hash or '—' }}</pre>
         </div>
         <div>
-          <span class="label">DCSync</span>
-          <pre class="result-box" style="width: 100%; margin: 0; white-space: pre-wrap; word-break: break-all;">{{ user.ntlm_hash or '' }}</pre>
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;">
+            <span class="label">DCSync</span>
+            {% if selected_user.ntlm_hash %}
+            <form method="POST" style="margin: 0;">
+              <input type="hidden" name="hash_type" value="dcsync">
+              <input type="hidden" name="username" value="{{ selected_user.username }}">
+              <button class="btn small" name="action" value="crack">Crack</button>
+            </form>
+            {% endif %}
+          </div>
+          <pre class="result-box" style="width: 100%; margin: 0; white-space: pre-wrap; word-break: break-all;">{{ selected_user.ntlm_hash or '—' }}</pre>
         </div>
       </div>
     </div>
-    {% endfor %}
   </div>
+  {% endif %}
   {% else %}
   <div class="notice">No hashes stored yet. Run kerberoasting, AS-REP roasting, or DCSync to populate the vault.</div>
   {% endif %}

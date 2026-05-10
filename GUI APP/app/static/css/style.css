@@ -161,6 +161,11 @@ body {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
+.card.wide {
+  max-width: none;
+  width: 100%;
+}
+
 .form .card + .card {
   margin-top: 28px;
 }
@@ -299,6 +304,19 @@ body {
 
 .btn.secondary:hover {
   background: rgba(255, 255, 255, 0.05);
+}
+
+.btn.danger {
+  background: #d13438;
+}
+
+.btn.danger:hover {
+  background: #a4262c;
+}
+
+.btn.small {
+  padding: 6px 12px;
+  font-size: 0.8rem;
 }
 
 .btn svg {

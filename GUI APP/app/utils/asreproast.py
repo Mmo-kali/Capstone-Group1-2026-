@@ -40,7 +40,14 @@ def run_asreproast(domain, username, password, target_ip):
             if parsed:
                 timestamp = datetime.now(timezone.utc).isoformat()
                 upsert_user_hash(parsed["username"], "asrepHash", parsed["hash"], timestamp)
-            result.append(line)
+                parsed["timestamp"] = timestamp
+                result.append(parsed)
+            else:
+                result.append({
+                    "username": "Unknown",
+                    "hash": line,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                })
     
     return result
 
