@@ -25,6 +25,7 @@
   - `/dcsync` DCSync page (check/exploit)
   - `/user-info` Displays stored session values
   - `/health` Health check endpoint
+  - `/vault` Cracking Station for obtained hashes
 
 ### 2) Kerberoasting (Check + Exploit)
 - Kerberoast **Check**: lists accounts/services with SPNs.
