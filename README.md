@@ -52,3 +52,13 @@
   - Upgrades pip tooling
   - Installs dependencies from `requirements.txt`
 - Dependencies include Flask + WTForms + Impacket.
+
+***
+
+# What was completed in the second term 
+
+### Week 2 - (2026-05-10)
+- **Added a new endpoint for the Cracking Station (Hashcat):**  
+  A new endpoint was created for the Cracking Station to enhance functionality. This allows users to interact directly with the Cracking Station for processing and validating obtained hashes, improving the user experience and operational capabilities.
+
+_Refer to commit: [Added a new endpoint for the Cracking Station - 2026-05-10](https://github.com/Mmo-kali/Capstone-Group1-2026-/commit/0e7f5a4286d0963912898cc1529690218df641ff)_
