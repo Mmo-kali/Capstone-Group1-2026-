@@ -342,6 +342,12 @@ body {
   padding: 12px 14px;
 }
 
+.output-row.stacked {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
+
 .output-row .label {
   color: var(--muted);
   font-size: 0.85rem;
@@ -350,6 +356,101 @@ body {
 .output-row .value {
   color: var(--text);
   font-weight: 500;
+}
+
+.group-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+}
+
+.group-list li {
+  background: rgba(0, 120, 212, 0.12);
+  border: 1px solid var(--accent);
+  color: var(--text);
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  letter-spacing: 0.2px;
+}
+
+.group-list.dangerous-list li {
+  background: rgba(209, 52, 56, 0.18);
+  border-color: #d13438;
+  color: #f3c6c7;
+}
+
+.group-pill {
+  position: relative;
+  cursor: help;
+}
+
+.group-tooltip {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 10px);
+  width: 320px;
+  background: #1c1c2a;
+  border: 1px solid #3a3a50;
+  border-radius: 8px;
+  padding: 12px;
+  color: var(--text);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.4);
+  opacity: 0;
+  transform: translateY(6px);
+  pointer-events: auto;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  z-index: 20;
+}
+
+.group-pill:not(:hover) .group-tooltip {
+  pointer-events: none;
+}
+
+.group-pill:hover .group-tooltip {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.tooltip-title {
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.tooltip-row {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  gap: 8px;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  margin-bottom: 6px;
+}
+
+.tooltip-label {
+  color: var(--muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  letter-spacing: 0.4px;
+}
+
+.tooltip-links {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.tooltip-links a {
+  color: var(--accent-light);
+  text-decoration: none;
+  font-size: 0.8rem;
+}
+
+.tooltip-links a:hover {
+  text-decoration: underline;
 }
 
 .notice {

@@ -13,17 +13,86 @@
     <div class="card-header">
       <svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
       <h1>Active Profile Information</h1>
+      {% if creds.username %}
+      <form method="POST" style="margin-left: auto;">
+        <button class="btn" name="action" value="collect" type="submit">
+          Collect Information
+        </button>
+      </form>
+      {% endif %}
     </div>
 
     {% if creds.username %}
+    {% if error %}
+    <div class="notice error">{{ error }}</div>
+    {% elif status_message %}
+    <div class="notice">{{ status_message }}</div>
+    {% endif %}
     <div class="output">
       <div class="output-row">
         <span class="label">Username</span>
         <span class="value">{{ creds.username }}</span>
       </div>
       <div class="output-row">
+        <span class="label">sAMAccountName</span>
+        <span class="value">{{ user_info.sAMAccountName if user_info else 'Not available' }}</span>
+      </div>
+      <div class="output-row">
+        <span class="label">Password Last Set</span>
+        <span class="value">{{ user_info.pwdLastSetDisplay if user_info and user_info.pwdLastSetDisplay else (user_info.pwdLastSet if user_info else 'Not available') }}</span>
+      </div>
+      <div class="output-row">
+        <span class="label">Description</span>
+        <span class="value">{{ user_info.description if user_info else 'Not available' }}</span>
+      </div>
+      <div class="output-row stacked">
+        <span class="label">Groups</span>
+        {% if user_info and user_info.groups %}
+        <ul class="group-list">
+          {% for group in user_info.groups.split(',') %}
+          {% set name = group | trim %}
+          {% if name %}
+          <li>{{ name }}</li>
+          {% endif %}
+          {% endfor %}
+        </ul>
+        {% else %}
+        <span class="value">Not available</span>
+        {% endif %}
+      </div>
+      <div class="output-row stacked">
         <span class="label">Dangerous Groups</span>
-        <span class="value">{{ creds.get('groups') or 'Not available' }}</span>
+        {% if dangerous_groups %}
+        <ul class="group-list dangerous-list">
+          {% for group in dangerous_groups %}
+          {% set detail = dangerous_group_details.get(group) %}
+          <li class="group-pill">
+            {{ group }}
+            {% if detail %}
+            <div class="group-tooltip">
+              <div class="tooltip-title">{{ group }}</div>
+              <div class="tooltip-row"><span class="tooltip-label">Scope</span>{{ detail.scope }}</div>
+              <div class="tooltip-row"><span class="tooltip-label">Tier</span>{{ detail.tier }}</div>
+              <div class="tooltip-row"><span class="tooltip-label">Description</span>{{ detail.description }}</div>
+              <div class="tooltip-row"><span class="tooltip-label">Reason</span>{{ detail.danger_reason }}</div>
+              {% if detail.docs %}
+              <div class="tooltip-links">
+                {% if detail.docs.microsoft %}
+                <a href="{{ detail.docs.microsoft }}" target="_blank" rel="noopener noreferrer">Microsoft</a>
+                {% endif %}
+                {% if detail.docs.specterops %}
+                <a href="{{ detail.docs.specterops }}" target="_blank" rel="noopener noreferrer">SpecterOps</a>
+                {% endif %}
+              </div>
+              {% endif %}
+            </div>
+            {% endif %}
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <span class="value">Not available</span>
+        {% endif %}
       </div>
     </div>
     {% else %}

@@ -2,6 +2,7 @@ CREATE TABLE IF NOT EXISTS users (
     username text,
     description text,
     groups text,
+    pwdLastSet text,
     ntlmHash text,
     kerberosHash text,
     asrepHash text,

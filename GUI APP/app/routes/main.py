@@ -1,5 +1,6 @@
 """Main routes for the Flask application."""
 
+import re
 import subprocess
 
 from flask import render_template, request
@@ -8,6 +9,7 @@ from . import main_bp
 from ..forms.user_form import UserForm
 from ..db.database import (
     fetch_profiles,
+    fetch_user_info,
     fetch_vault_users,
     get_active_profile,
     get_profile,
@@ -16,8 +18,10 @@ from ..db.database import (
     clear_profiles,
     update_user_password,
     upsert_profile,
+    upsert_user_info,
 )
 from ..utils.helpers import process_user_input
+from ..utils.userRetrieval import filetime_to_datetime, find_dangerous_groups_from_text
 from ..utils.asreproast import check_asreproast, run_asreproast
 from ..utils.dcsync import check_dcsync, run_dcsync
 from ..utils.kerberoast import (
@@ -28,6 +32,166 @@ from ..utils.kerberoast import (
 )
 
 REQUIRED_CRED_KEYS = ("username", "password", "domain", "dc_ip")
+
+DANGEROUS_GROUP_DETAILS = {
+    "Domain Admins": {
+        "sid_rid": "S-1-5-21-<domain>-512",
+        "scope": "Global",
+        "tier": "Tier Zero",
+        "description": (
+            "Administrators with full control over the domain; members are in the "
+            "domain's built-in Administrators group and local Administrators on all "
+            "domain-joined systems by default."
+        ),
+        "danger_reason": (
+            "Compromise grants full domain control and administrative access on all "
+            "domain-joined machines."
+        ),
+        "docs": {
+            "microsoft": "https://learn.microsoft.com/en-au/windows-server/identity/ad-ds/plan/security-best-practices/appendix-b--privileged-accounts-and-groups-in-active-directory",
+            "specterops": "https://bloodhound.specterops.io/get-started/security-boundaries/tier-zero-members",
+        },
+    },
+    "Enterprise Admins": {
+        "sid_rid": "S-1-5-21-<root-domain>-519",
+        "scope": "Universal",
+        "tier": "Tier Zero",
+        "description": (
+            "Forest-wide administrators; membership grants control across all domains "
+            "in the forest and inherits rights through membership in Administrators groups."
+        ),
+        "danger_reason": "Compromise grants forest-wide administrative control.",
+        "docs": {
+            "microsoft": "https://learn.microsoft.com/en-au/windows-server/identity/ad-ds/plan/security-best-practices/appendix-b--privileged-accounts-and-groups-in-active-directory",
+            "specterops": "https://bloodhound.specterops.io/get-started/security-boundaries/tier-zero-members",
+        },
+    },
+    "Administrators": {
+        "sid_rid": "S-1-5-32-544",
+        "scope": "Builtin Local (Domain Local)",
+        "tier": "Tier Zero",
+        "description": (
+            "Built-in Administrators group with direct rights over directory objects "
+            "and domain controllers."
+        ),
+        "danger_reason": "Members have powerful rights in AD and on domain controllers.",
+        "docs": {
+            "microsoft": "https://learn.microsoft.com/en-au/windows-server/identity/ad-ds/plan/security-best-practices/appendix-b--privileged-accounts-and-groups-in-active-directory",
+            "specterops": "https://bloodhound.specterops.io/get-started/security-boundaries/tier-zero-members",
+        },
+    },
+    "Schema Admins": {
+        "sid_rid": "S-1-5-21-<root-domain>-518",
+        "scope": "Universal",
+        "tier": "Tier Zero",
+        "description": "Can modify the AD schema, affecting the entire forest.",
+        "danger_reason": (
+            "Schema changes can impact all domains and enable persistence or wide-scale "
+            "compromise."
+        ),
+        "docs": {
+            "microsoft": "https://learn.microsoft.com/en-au/windows-server/identity/ad-ds/plan/security-best-practices/appendix-b--privileged-accounts-and-groups-in-active-directory",
+            "specterops": "https://bloodhound.specterops.io/get-started/security-boundaries/tier-zero-members",
+        },
+    },
+    "Domain Controllers": {
+        "sid_rid": "S-1-5-21-<domain>-516",
+        "scope": "Global",
+        "tier": "Tier Zero",
+        "description": "Group containing all domain controllers in the domain.",
+        "danger_reason": "Any compromise of a DC equals domain compromise.",
+        "docs": {
+            "microsoft": "https://learn.microsoft.com/en-us/windows-server/identity/ad-ds/manage/understand-security-groups",
+            "specterops": "https://bloodhound.specterops.io/get-started/security-boundaries/tier-zero-members",
+        },
+    },
+    "Enterprise Domain Controllers": {
+        "sid_rid": "S-1-5-9",
+        "scope": "Global",
+        "tier": "Tier Zero",
+        "description": "Includes all domain controllers in the forest.",
+        "danger_reason": (
+            "Represents forest-wide DC trust; compromise implies forest-level impact."
+        ),
+        "docs": {
+            "microsoft": "https://learn.microsoft.com/en-us/windows-server/identity/ad-ds/manage/understand-security-groups",
+            "specterops": "https://bloodhound.specterops.io/get-started/security-boundaries/tier-zero-members",
+        },
+    },
+    "Key Admins": {
+        "sid_rid": "S-1-5-21-<domain>-526",
+        "scope": "Global",
+        "tier": "Tier Zero",
+        "description": "Can manage key credentials for AD objects in the domain.",
+        "danger_reason": (
+            "Can enable shadow credentials and take over accounts using key credential "
+            "manipulation."
+        ),
+        "docs": {
+            "microsoft": "https://learn.microsoft.com/en-us/windows-server/identity/ad-ds/manage/understand-security-groups",
+            "specterops": "https://bloodhound.specterops.io/get-started/security-boundaries/tier-zero-members",
+        },
+    },
+    "Enterprise Key Admins": {
+        "sid_rid": "S-1-5-21-<root-domain>-527",
+        "scope": "Universal",
+        "tier": "Tier Zero",
+        "description": "Can manage key credentials for AD objects across the forest.",
+        "danger_reason": (
+            "Forest-wide ability to manipulate key credentials can lead to pervasive "
+            "compromise."
+        ),
+        "docs": {
+            "microsoft": "https://learn.microsoft.com/en-us/windows-server/identity/ad-ds/manage/understand-security-groups",
+            "specterops": "https://bloodhound.specterops.io/get-started/security-boundaries/tier-zero-members",
+        },
+    },
+    "Account Operators": {
+        "sid_rid": "S-1-5-32-548",
+        "scope": "Builtin Local (Domain Local)",
+        "tier": "Privileged",
+        "description": "Can create/modify/delete many user accounts and groups.",
+        "danger_reason": (
+            "Can manipulate accounts and groups, enabling privilege escalation and "
+            "persistence."
+        ),
+        "docs": {
+            "microsoft": "https://learn.microsoft.com/en-us/windows-server/identity/ad-ds/manage/understand-security-groups",
+        },
+    },
+    "Server Operators": {
+        "sid_rid": "S-1-5-32-549",
+        "scope": "Builtin Local (Domain Local)",
+        "tier": "Privileged",
+        "description": (
+            "Has elevated rights on domain controllers (service/logon/maintenance tasks)."
+        ),
+        "danger_reason": "Operator privileges on DCs can be abused to gain higher privileges.",
+        "docs": {
+            "microsoft": "https://learn.microsoft.com/en-us/windows-server/identity/ad-ds/manage/understand-security-groups",
+        },
+    },
+    "Backup Operators": {
+        "sid_rid": "S-1-5-32-551",
+        "scope": "Builtin Local (Domain Local)",
+        "tier": "Privileged",
+        "description": "Can back up and restore files and directories on domain controllers.",
+        "danger_reason": "Backup/restore rights can bypass file ACLs and enable credential theft.",
+        "docs": {
+            "microsoft": "https://learn.microsoft.com/en-us/windows-server/identity/ad-ds/manage/understand-security-groups",
+        },
+    },
+    "Print Operators": {
+        "sid_rid": "S-1-5-32-550",
+        "scope": "Builtin Local (Domain Local)",
+        "tier": "Privileged",
+        "description": "Can manage printers and print queues on domain controllers.",
+        "danger_reason": "Printer management rights can be abused for privilege escalation.",
+        "docs": {
+            "microsoft": "https://learn.microsoft.com/en-us/windows-server/identity/ad-ds/manage/understand-security-groups",
+        },
+    },
+}
 
 
 def _get_creds():
@@ -50,6 +214,52 @@ def _render_exploit(template, creds, results, error, status_message, action):
         status_message=status_message,
         action=action,
     )
+
+
+def _parse_bloodyad_output(output):
+    if not output:
+        return {}
+
+    attr_map = {
+        "samaccountname": "sAMAccountName",
+        "pwdlastset": "pwdLastSet",
+        "description": "description",
+    }
+    parsed = {}
+
+    for line in output.splitlines():
+        if ":" not in line:
+            continue
+        key, value = line.split(":", 1)
+        key = key.strip().lower()
+        if key not in attr_map:
+            continue
+        value = value.strip()
+        if value.startswith("[") and value.endswith("]"):
+            value = value[1:-1].strip()
+        value = value.strip().strip("\"").strip("'")
+        parsed[attr_map[key]] = value
+
+    return parsed
+
+
+def _parse_bloodyad_membership_output(output):
+    if not output:
+        return []
+
+    matches = []
+    for line in output.splitlines():
+        match = re.search(r"samaccountname\s*[:=]\s*(.+)", line, re.IGNORECASE)
+        if not match:
+            continue
+        value = match.group(1).strip()
+        if value.startswith("[") and value.endswith("]"):
+            value = value[1:-1].strip()
+        value = value.strip().strip("\"").strip("'")
+        if value:
+            matches.append(value)
+
+    return matches
 
 # Index
 @main_bp.route("/", methods=["GET", "POST"])
@@ -272,17 +482,134 @@ def health():
     return {"status": "ok"}
 
 
-@main_bp.route("/user-info")
+@main_bp.route("/user-info", methods=["GET", "POST"])
 def user_info():
     """Display stored user information."""
     creds = _get_creds()
     profiles = fetch_profiles()
     active_profile = get_active_profile()
+    status_message = None
+    error = None
+
+    loaded_user = creds.get("username") if creds else None
+
+    if request.method == "POST":
+        action = request.form.get("action")
+        if action == "collect":
+            missing = [
+                key
+                for key in ("username", "domain", "password")
+                if not creds.get(key)
+            ]
+            dc_host = creds.get("dc_fqdn") or creds.get("dc_ip")
+            if missing or not dc_host:
+                error = "Please submit credentials and domain settings first."
+                return render_template(
+                    "user_info.html",
+                    creds=creds,
+                    profiles=profiles,
+                    active_profile=active_profile,
+                    status_message=status_message,
+                    error=error,
+                    user_info=None,
+                )
+            if not loaded_user:
+                error = "No active user loaded."
+                return render_template(
+                    "user_info.html",
+                    creds=creds,
+                    profiles=profiles,
+                    active_profile=active_profile,
+                    status_message=status_message,
+                    error=error,
+                    user_info=None,
+                )
+            command = [
+                "bloodyAD",
+                "-H",
+                dc_host,
+                "-d",
+                creds.get("domain", ""),
+                "-u",
+                creds.get("username", ""),
+                "-p",
+                creds.get("password", ""),
+                "get",
+                "object",
+                loaded_user or "",
+                "--attr",
+                "sAMAccountName,pwdLastSet,description",
+            ]
+            result = subprocess.run(command, capture_output=True, text=True)
+            if result.returncode != 0:
+                message = result.stderr.strip() or "Unknown error"
+                error = f"bloodyAD failed: {message}"
+            else:
+                raw_output = result.stdout or result.stderr
+                parsed = _parse_bloodyad_output(raw_output)
+                if not parsed:
+                    error = "No user attributes returned from bloodyAD."
+                else:
+                    membership_command = [
+                        "bloodyAD",
+                        "-H",
+                        dc_host,
+                        "-d",
+                        creds.get("domain", ""),
+                        "-u",
+                        creds.get("username", ""),
+                        "-p",
+                        creds.get("password", ""),
+                        "get",
+                        "membership",
+                        loaded_user or "",
+                    ]
+                    membership_result = subprocess.run(
+                        membership_command,
+                        capture_output=True,
+                        text=True,
+                    )
+                    if membership_result.returncode != 0:
+                        message = membership_result.stderr.strip() or "Unknown error"
+                        error = f"bloodyAD membership failed: {message}"
+                    else:
+                        membership_output = (
+                            membership_result.stdout or membership_result.stderr
+                        )
+                        group_names = _parse_bloodyad_membership_output(membership_output)
+                        groups_text = ", ".join(sorted(set(group_names)))
+                        upsert_user_info(
+                            parsed.get("sAMAccountName") or loaded_user,
+                            parsed.get("pwdLastSet"),
+                            parsed.get("description"),
+                            groups_text,
+                        )
+                        status_message = "User information collected."
+
+    user_info = fetch_user_info(loaded_user) if loaded_user else None
+    dangerous_groups = []
+    dangerous_group_details = {}
+    if user_info and user_info.get("groups"):
+        dangerous_groups = find_dangerous_groups_from_text(user_info.get("groups"))
+        dangerous_group_details = {
+            name: DANGEROUS_GROUP_DETAILS.get(name)
+            for name in dangerous_groups
+            if DANGEROUS_GROUP_DETAILS.get(name)
+        }
+    if user_info and user_info.get("pwdLastSet"):
+        formatted = filetime_to_datetime(user_info.get("pwdLastSet"))
+        if formatted:
+            user_info["pwdLastSetDisplay"] = formatted
     return render_template(
         "user_info.html",
         creds=creds,
         profiles=profiles,
         active_profile=active_profile,
+        status_message=status_message,
+        error=error,
+        user_info=user_info,
+        dangerous_groups=dangerous_groups,
+        dangerous_group_details=dangerous_group_details,
     )
 
 

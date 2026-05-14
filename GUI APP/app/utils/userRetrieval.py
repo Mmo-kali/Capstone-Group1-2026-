@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 import argparse
-import json
 import sys
 from datetime import datetime, timezone
 
@@ -11,14 +10,24 @@ from ldap3.utils.conv import escape_filter_chars
 DANGEROUS_GROUP_KEYWORDS = [
     "Domain Admins",
     "Enterprise Admins",
-    "Schema Admins",
     "Administrators",
-    "Account Operators",
     "Server Operators",
     "Backup Operators",
-    "DnsAdmins",
-    "Group Policy Creator Owners",
+    "Account Operators",
     "Print Operators",
+    "DNSAdmins",
+    "Group Policy Creator Owners",
+    "Schema Admins",
+    "Remote Desktop Users",
+    "Hyper-V Administrators",
+    "Cert Publishers",
+    "Key Admins",
+    "Enterprise Key Admins",
+    "Protected Users",
+    "Exchange Windows Permissions",
+    "Remote Management Users",
+    "Cryptographic Operators",
+    "Event Log Readers",
 ]
 
 
@@ -90,6 +99,25 @@ def find_dangerous_groups(groups):
                 dangerous.append(group_name)
 
     return sorted(set(dangerous))
+
+
+def parse_groups_text(groups_text):
+    if not groups_text:
+        return []
+
+    groups = []
+    for chunk in groups_text.replace(";", ",").split(","):
+        name = chunk.strip()
+        if not name:
+            continue
+        groups.append(clean_dn_name(name))
+
+    return groups
+
+
+def find_dangerous_groups_from_text(groups_text):
+    groups = parse_groups_text(groups_text)
+    return find_dangerous_groups(groups)
 
 
 def analyze_privileges(entry):
@@ -177,7 +205,6 @@ def main():
     parser.add_argument("-u", required=True, help="LDAP username")
     parser.add_argument("-p", required=True, help="LDAP password")
     parser.add_argument("-users", required=True, help="File with usernames, one per line")
-    parser.add_argument("-o", default="user_audit_report.json", help="Output JSON file")
 
     args = parser.parse_args()
 
@@ -254,11 +281,8 @@ def main():
             "Special / Dangerous Privileges": "; ".join(findings) if findings else "None detected",
         })
 
-    with open(args.o, "w", encoding="utf-8") as jsonfile:
-        json.dump(rows, jsonfile, indent=2)
-
-    json.dump(rows, sys.stdout, indent=2)
-    sys.stdout.write("\n")
+    for row in rows:
+        print(row)
 
 if __name__ == "__main__":
     main()

@@ -59,10 +59,18 @@ def _migrate_schema(conn):
             )
 
     if "users" in {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}:
+        _ensure_column(conn, "users", "groups", "text")
         _ensure_column(conn, "users", "kerberosHash", "text")
         _ensure_column(conn, "users", "asrepHash", "text")
         _ensure_column(conn, "users", "ntlmHash", "text")
         _ensure_column(conn, "users", "lastSet", "timestamp")
+        _ensure_column(conn, "users", "pwdLastSet", "text")
+
+
+def _normalize_username(value):
+    if not value:
+        return value
+    return value.split("\\", 1)[-1]
 
 
 def fetch_profiles():
@@ -285,14 +293,9 @@ def fetch_vault_users():
 
     ui_blacklist = {"guest", "krbtgt"}
 
-    def normalize_username(value):
-        if not value:
-            return value
-        return value.split("\\", 1)[-1]
-
     entries_by_user = {}
     for row in rows:
-        username = normalize_username(row["username"])
+        username = _normalize_username(row["username"])
         if not username or username.lower() in ui_blacklist:
             continue
         entry = entries_by_user.get(username)
@@ -330,4 +333,59 @@ def fetch_vault_users():
 
     entries.sort(key=lambda item: (item.get("username") or ""))
     return entries
+
+
+def upsert_user_info(username, pwd_last_set, description, groups=None):
+    username = _normalize_username(username)
+    if not username:
+        return
+    conn = get_db()
+    try:
+        cursor = conn.execute(
+            """
+            UPDATE users
+            SET description = ?, pwdLastSet = ?, groups = ?
+            WHERE username = ?
+            """,
+            (description or "", pwd_last_set or "", groups or "", username),
+        )
+        if cursor.rowcount == 0:
+            conn.execute(
+                """
+                INSERT INTO users (username, description, pwdLastSet, groups)
+                VALUES (?, ?, ?, ?)
+                """,
+                (username, description or "", pwd_last_set or "", groups or ""),
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def fetch_user_info(username):
+    username = _normalize_username(username)
+    if not username:
+        return None
+    conn = get_db()
+    try:
+        row = conn.execute(
+            """
+            SELECT username, description, pwdLastSet, groups
+            FROM users
+            WHERE username = ?
+            """,
+            (username,),
+        ).fetchone()
+    finally:
+        conn.close()
+
+    if not row:
+        return None
+
+    return {
+        "sAMAccountName": row["username"],
+        "pwdLastSet": row["pwdLastSet"],
+        "description": row["description"],
+        "groups": row["groups"],
+    }
 
