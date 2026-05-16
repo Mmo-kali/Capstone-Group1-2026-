@@ -45,6 +45,30 @@
         <span class="label">Description</span>
         <span class="value">{{ user_info.description if user_info else 'Not available' }}</span>
       </div>
+      <div class="output-row">
+        <span class="label">Machine Account Quota</span>
+        {% if user_info and user_info.machineAccountQuota %}
+        <span class="value">
+          <span class="quota-pill">
+            {{ user_info.machineAccountQuota }}
+            <span class="quota-tooltip">
+              <div class="tooltip-title">MachineAccountQuota</div>
+              <div class="tooltip-row"><span class="tooltip-label">Attribute</span>ms-DS-MachineAccountQuota</div>
+              <div class="tooltip-row"><span class="tooltip-label">Type</span>Active Directory domain attribute</div>
+              <div class="tooltip-row"><span class="tooltip-label">Default</span>10</div>
+              <div class="tooltip-row"><span class="tooltip-label">Description</span>Controls how many computer accounts a non-admin user can create in the domain.</div>
+              <div class="tooltip-row"><span class="tooltip-label">Reason</span>A higher quota allows attackers to create machine accounts for abuse (e.g., resource-based constrained delegation or other attacks).</div>
+              <div class="tooltip-links">
+                <a href="https://learn.microsoft.com/en-us/windows/win32/adschema/a-ms-ds-machineaccountquota" target="_blank" rel="noopener noreferrer">Microsoft</a>
+                <a href="https://www.thehacker.recipes/ad/movement/builtins/machineaccountquota" target="_blank" rel="noopener noreferrer">Exploitation</a>
+              </div>
+            </span>
+          </span>
+        </span>
+        {% else %}
+        <span class="value">Not available</span>
+        {% endif %}
+      </div>
       <div class="output-row stacked">
         <span class="label">Groups</span>
         {% if user_info and user_info.groups %}
@@ -95,6 +119,45 @@
         {% endif %}
       </div>
     </div>
+    {% else %}
+    <div class="notice">No user configured yet. Please submit credentials on the <a href="{{ url_for('main.index') }}" style="color: var(--accent-light);">User Configuration</a> page first.</div>
+    {% endif %}
+  </section>
+
+  <section class="card">
+    <div class="card-header">
+      <svg viewBox="0 0 24 24"><path d="M12 1l3 7h7l-5.5 4.2L18.5 20 12 15.8 5.5 20l2-7.8L2 8h7z"/></svg>
+      <h1>Domain Admins</h1>
+      {% if creds.username %}
+      <form method="POST" style="margin-left: auto;">
+        <button class="btn" name="action" value="collect_domain_admins" type="submit">
+          Collect
+        </button>
+      </form>
+      {% endif %}
+    </div>
+
+    {% if creds.username %}
+    {% if domain_admins_error %}
+    <div class="notice error">{{ domain_admins_error }}</div>
+    {% elif domain_admins_message %}
+    <div class="notice">{{ domain_admins_message }}</div>
+    {% endif %}
+
+    {% if domain_admins and domain_admins.members %}
+    <div class="output">
+      <div class="output-row stacked">
+        <span class="label">Members</span>
+        <ul class="group-list">
+          {% for member in domain_admins.members %}
+          <li>{{ member }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+    {% else %}
+    <div class="notice">No Domain Admins collected yet.</div>
+    {% endif %}
     {% else %}
     <div class="notice">No user configured yet. Please submit credentials on the <a href="{{ url_for('main.index') }}" style="color: var(--accent-light);">User Configuration</a> page first.</div>
     {% endif %}

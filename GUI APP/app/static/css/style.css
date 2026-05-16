@@ -415,6 +415,47 @@ body {
   transform: translateY(0);
 }
 
+.quota-pill {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  background: rgba(255, 140, 0, 0.15);
+  border: 1px solid #ff8c00;
+  color: #ffd6a6;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  letter-spacing: 0.2px;
+  cursor: help;
+}
+
+.quota-tooltip {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 10px);
+  width: 320px;
+  background: #1c1c2a;
+  border: 1px solid #3a3a50;
+  border-radius: 8px;
+  padding: 12px;
+  color: var(--text);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.4);
+  opacity: 0;
+  transform: translateY(6px);
+  pointer-events: auto;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  z-index: 20;
+}
+
+.quota-pill:not(:hover) .quota-tooltip {
+  pointer-events: none;
+}
+
+.quota-pill:hover .quota-tooltip {
+  opacity: 1;
+  transform: translateY(0);
+}
+
 .tooltip-title {
   font-weight: 600;
   margin-bottom: 8px;

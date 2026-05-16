@@ -3,6 +3,7 @@ CREATE TABLE IF NOT EXISTS users (
     description text,
     groups text,
     pwdLastSet text,
+    machineAccountQuota text,
     ntlmHash text,
     kerberosHash text,
     asrepHash text,
@@ -23,4 +24,9 @@ CREATE TABLE IF NOT EXISTS profiles (
 CREATE TABLE IF NOT EXISTS app_state (
     key text primary key,
     value text
+);
+
+CREATE TABLE IF NOT EXISTS domain_admins (
+    member text,
+    collected_at timestamp
 );

@@ -1,6 +1,7 @@
 """Main routes for the Flask application."""
 
 import re
+from datetime import datetime, timezone
 import subprocess
 
 from flask import render_template, request
@@ -11,17 +12,24 @@ from ..db.database import (
     fetch_profiles,
     fetch_user_info,
     fetch_vault_users,
+    fetch_domain_admins,
     get_active_profile,
     get_profile,
     set_active_profile,
     clear_vault,
     clear_profiles,
     update_user_password,
+    replace_domain_admins,
     upsert_profile,
     upsert_user_info,
 )
 from ..utils.helpers import process_user_input
-from ..utils.userRetrieval import filetime_to_datetime, find_dangerous_groups_from_text
+from ..utils.userRetrieval import (
+    clean_dn_name,
+    domain_to_dn,
+    filetime_to_datetime,
+    find_dangerous_groups_from_text,
+)
 from ..utils.asreproast import check_asreproast, run_asreproast
 from ..utils.dcsync import check_dcsync, run_dcsync
 from ..utils.kerberoast import (
@@ -39,16 +47,12 @@ DANGEROUS_GROUP_DETAILS = {
         "scope": "Global",
         "tier": "Tier Zero",
         "description": (
-            "Administrators with full control over the domain; members are in the "
-            "domain's built-in Administrators group and local Administrators on all "
+            "Members administer the domain and are local Administrators on all "
             "domain-joined systems by default."
         ),
-        "danger_reason": (
-            "Compromise grants full domain control and administrative access on all "
-            "domain-joined machines."
-        ),
+        "danger_reason": "Compromise grants full control over the domain and domain controllers.",
         "docs": {
-            "microsoft": "https://learn.microsoft.com/en-au/windows-server/identity/ad-ds/plan/security-best-practices/appendix-b--privileged-accounts-and-groups-in-active-directory",
+            "microsoft": "https://learn.microsoft.com/en-us/windows-server/identity/ad-ds/manage/understand-security-groups",
             "specterops": "https://bloodhound.specterops.io/get-started/security-boundaries/tier-zero-members",
         },
     },
@@ -56,13 +60,10 @@ DANGEROUS_GROUP_DETAILS = {
         "sid_rid": "S-1-5-21-<root-domain>-519",
         "scope": "Universal",
         "tier": "Tier Zero",
-        "description": (
-            "Forest-wide administrators; membership grants control across all domains "
-            "in the forest and inherits rights through membership in Administrators groups."
-        ),
-        "danger_reason": "Compromise grants forest-wide administrative control.",
+        "description": "Forest-wide administrators with authority to make changes across all domains.",
+        "danger_reason": "Compromise grants control across the entire forest.",
         "docs": {
-            "microsoft": "https://learn.microsoft.com/en-au/windows-server/identity/ad-ds/plan/security-best-practices/appendix-b--privileged-accounts-and-groups-in-active-directory",
+            "microsoft": "https://learn.microsoft.com/en-us/windows-server/identity/ad-ds/manage/understand-security-groups",
             "specterops": "https://bloodhound.specterops.io/get-started/security-boundaries/tier-zero-members",
         },
     },
@@ -70,13 +71,10 @@ DANGEROUS_GROUP_DETAILS = {
         "sid_rid": "S-1-5-32-544",
         "scope": "Builtin Local (Domain Local)",
         "tier": "Tier Zero",
-        "description": (
-            "Built-in Administrators group with direct rights over directory objects "
-            "and domain controllers."
-        ),
-        "danger_reason": "Members have powerful rights in AD and on domain controllers.",
+        "description": "Built-in group with complete and unrestricted access to domain controllers.",
+        "danger_reason": "Members have full administrative control in the domain.",
         "docs": {
-            "microsoft": "https://learn.microsoft.com/en-au/windows-server/identity/ad-ds/plan/security-best-practices/appendix-b--privileged-accounts-and-groups-in-active-directory",
+            "microsoft": "https://learn.microsoft.com/en-us/windows-server/identity/ad-ds/manage/understand-security-groups",
             "specterops": "https://bloodhound.specterops.io/get-started/security-boundaries/tier-zero-members",
         },
     },
@@ -84,35 +82,8 @@ DANGEROUS_GROUP_DETAILS = {
         "sid_rid": "S-1-5-21-<root-domain>-518",
         "scope": "Universal",
         "tier": "Tier Zero",
-        "description": "Can modify the AD schema, affecting the entire forest.",
-        "danger_reason": (
-            "Schema changes can impact all domains and enable persistence or wide-scale "
-            "compromise."
-        ),
-        "docs": {
-            "microsoft": "https://learn.microsoft.com/en-au/windows-server/identity/ad-ds/plan/security-best-practices/appendix-b--privileged-accounts-and-groups-in-active-directory",
-            "specterops": "https://bloodhound.specterops.io/get-started/security-boundaries/tier-zero-members",
-        },
-    },
-    "Domain Controllers": {
-        "sid_rid": "S-1-5-21-<domain>-516",
-        "scope": "Global",
-        "tier": "Tier Zero",
-        "description": "Group containing all domain controllers in the domain.",
-        "danger_reason": "Any compromise of a DC equals domain compromise.",
-        "docs": {
-            "microsoft": "https://learn.microsoft.com/en-us/windows-server/identity/ad-ds/manage/understand-security-groups",
-            "specterops": "https://bloodhound.specterops.io/get-started/security-boundaries/tier-zero-members",
-        },
-    },
-    "Enterprise Domain Controllers": {
-        "sid_rid": "S-1-5-9",
-        "scope": "Global",
-        "tier": "Tier Zero",
-        "description": "Includes all domain controllers in the forest.",
-        "danger_reason": (
-            "Represents forest-wide DC trust; compromise implies forest-level impact."
-        ),
+        "description": "Members can modify the Active Directory schema.",
+        "danger_reason": "Schema changes affect the entire forest and can enable persistence.",
         "docs": {
             "microsoft": "https://learn.microsoft.com/en-us/windows-server/identity/ad-ds/manage/understand-security-groups",
             "specterops": "https://bloodhound.specterops.io/get-started/security-boundaries/tier-zero-members",
@@ -122,11 +93,8 @@ DANGEROUS_GROUP_DETAILS = {
         "sid_rid": "S-1-5-21-<domain>-526",
         "scope": "Global",
         "tier": "Tier Zero",
-        "description": "Can manage key credentials for AD objects in the domain.",
-        "danger_reason": (
-            "Can enable shadow credentials and take over accounts using key credential "
-            "manipulation."
-        ),
+        "description": "Members can manage key credentials for AD objects in the domain.",
+        "danger_reason": "Can enable shadow credentials and account takeover.",
         "docs": {
             "microsoft": "https://learn.microsoft.com/en-us/windows-server/identity/ad-ds/manage/understand-security-groups",
             "specterops": "https://bloodhound.specterops.io/get-started/security-boundaries/tier-zero-members",
@@ -136,11 +104,8 @@ DANGEROUS_GROUP_DETAILS = {
         "sid_rid": "S-1-5-21-<root-domain>-527",
         "scope": "Universal",
         "tier": "Tier Zero",
-        "description": "Can manage key credentials for AD objects across the forest.",
-        "danger_reason": (
-            "Forest-wide ability to manipulate key credentials can lead to pervasive "
-            "compromise."
-        ),
+        "description": "Members can manage key credentials across the forest.",
+        "danger_reason": "Forest-wide credential manipulation risk.",
         "docs": {
             "microsoft": "https://learn.microsoft.com/en-us/windows-server/identity/ad-ds/manage/understand-security-groups",
             "specterops": "https://bloodhound.specterops.io/get-started/security-boundaries/tier-zero-members",
@@ -150,35 +115,33 @@ DANGEROUS_GROUP_DETAILS = {
         "sid_rid": "S-1-5-32-548",
         "scope": "Builtin Local (Domain Local)",
         "tier": "Privileged",
-        "description": "Can create/modify/delete many user accounts and groups.",
-        "danger_reason": (
-            "Can manipulate accounts and groups, enabling privilege escalation and "
-            "persistence."
-        ),
+        "description": "Can create, modify, and delete many user accounts and groups.",
+        "danger_reason": "Account control can be abused for privilege escalation and persistence.",
         "docs": {
             "microsoft": "https://learn.microsoft.com/en-us/windows-server/identity/ad-ds/manage/understand-security-groups",
+            "specterops": "https://specterops.io/blog/2023/06/22/what-is-tier-zero-part-1/",
         },
     },
     "Server Operators": {
         "sid_rid": "S-1-5-32-549",
         "scope": "Builtin Local (Domain Local)",
         "tier": "Privileged",
-        "description": (
-            "Has elevated rights on domain controllers (service/logon/maintenance tasks)."
-        ),
-        "danger_reason": "Operator privileges on DCs can be abused to gain higher privileges.",
+        "description": "Can administer domain controllers for specific tasks.",
+        "danger_reason": "Operational privileges on DCs can be abused to elevate access.",
         "docs": {
             "microsoft": "https://learn.microsoft.com/en-us/windows-server/identity/ad-ds/manage/understand-security-groups",
+            "specterops": "https://specterops.io/blog/2023/06/22/what-is-tier-zero-part-1/",
         },
     },
     "Backup Operators": {
         "sid_rid": "S-1-5-32-551",
         "scope": "Builtin Local (Domain Local)",
         "tier": "Privileged",
-        "description": "Can back up and restore files and directories on domain controllers.",
-        "danger_reason": "Backup/restore rights can bypass file ACLs and enable credential theft.",
+        "description": "Can back up and restore data on domain controllers.",
+        "danger_reason": "Backup rights can bypass file ACLs and enable credential theft.",
         "docs": {
             "microsoft": "https://learn.microsoft.com/en-us/windows-server/identity/ad-ds/manage/understand-security-groups",
+            "specterops": "https://specterops.io/blog/2023/06/22/what-is-tier-zero-part-1/",
         },
     },
     "Print Operators": {
@@ -186,9 +149,118 @@ DANGEROUS_GROUP_DETAILS = {
         "scope": "Builtin Local (Domain Local)",
         "tier": "Privileged",
         "description": "Can manage printers and print queues on domain controllers.",
-        "danger_reason": "Printer management rights can be abused for privilege escalation.",
+        "danger_reason": "Printer management on DCs can be abused for privilege escalation.",
         "docs": {
             "microsoft": "https://learn.microsoft.com/en-us/windows-server/identity/ad-ds/manage/understand-security-groups",
+            "specterops": "https://specterops.io/blog/2023/06/22/what-is-tier-zero-part-1/",
+        },
+    },
+    "DNSAdmins": {
+        "sid_rid": "Domain-specific RID (see docs)",
+        "scope": "Domain Local",
+        "tier": "Privileged",
+        "description": "Members administer DNS Server service in the domain.",
+        "danger_reason": "DNS admin rights can be leveraged to compromise domain services.",
+        "docs": {
+            "microsoft": "https://learn.microsoft.com/en-us/defender-for-identity/unsafe-permissions-dns-admins-group",
+            "specterops": "https://specterops.io/blog/2023/06/22/what-is-tier-zero-part-1/",
+        },
+    },
+    "Group Policy Creator Owners": {
+        "sid_rid": "S-1-5-21-<domain>-520",
+        "scope": "Global",
+        "tier": "Privileged",
+        "description": "Members can create Group Policy Objects (GPOs) in the domain.",
+        "danger_reason": "GPO control can lead to broad code execution and domain compromise.",
+        "docs": {
+            "microsoft": "https://learn.microsoft.com/en-us/windows-server/identity/ad-ds/manage/understand-security-groups",
+            "specterops": "https://specterops.io/blog/2023/06/22/what-is-tier-zero-part-1/",
+        },
+    },
+    "Remote Desktop Users": {
+        "sid_rid": "S-1-5-32-555",
+        "scope": "Builtin Local (Domain Local)",
+        "tier": "Privileged",
+        "description": "Allows remote logon via Remote Desktop Services.",
+        "danger_reason": "Provides interactive access that can be abused for lateral movement.",
+        "docs": {
+            "microsoft": "https://learn.microsoft.com/en-us/windows-server/identity/ad-ds/manage/understand-security-groups",
+        },
+    },
+    "Remote Management Users": {
+        "sid_rid": "S-1-5-32-580",
+        "scope": "Builtin Local (Domain Local)",
+        "tier": "Privileged",
+        "description": "Allows management access via WinRM/WS-Management.",
+        "danger_reason": "Remote management access can be abused for lateral movement.",
+        "docs": {
+            "microsoft": "https://learn.microsoft.com/en-us/windows-server/identity/ad-ds/manage/understand-security-groups",
+        },
+    },
+    "Hyper-V Administrators": {
+        "sid_rid": "S-1-5-32-578",
+        "scope": "Builtin Local (Domain Local)",
+        "tier": "Privileged",
+        "description": "Can administer Hyper-V services on a host.",
+        "danger_reason": "Hyper-V control can lead to host or VM compromise.",
+        "docs": {
+            "microsoft": "https://learn.microsoft.com/en-us/windows-server/identity/ad-ds/manage/understand-security-groups",
+        },
+    },
+    "Cert Publishers": {
+        "sid_rid": "Domain-specific RID (see docs)",
+        "scope": "Domain Local",
+        "tier": "Privileged",
+        "description": "Used for publishing certificates to Active Directory.",
+        "danger_reason": "Certificate publishing permissions can be abused in AD CS attack chains.",
+        "docs": {
+            "microsoft": "https://learn.microsoft.com/en-us/windows-server/identity/ad-ds/manage/understand-security-groups",
+        },
+    },
+    "Cryptographic Operators": {
+        "sid_rid": "S-1-5-32-569",
+        "scope": "Builtin Local (Domain Local)",
+        "tier": "Privileged",
+        "description": "Members can perform cryptographic operations on a system.",
+        "danger_reason": "Crypto rights can be abused to affect system security or trust.",
+        "docs": {
+            "microsoft": "https://learn.microsoft.com/en-us/windows-server/identity/ad-ds/manage/understand-security-groups",
+        },
+    },
+    "Event Log Readers": {
+        "sid_rid": "S-1-5-32-573",
+        "scope": "Builtin Local (Domain Local)",
+        "tier": "Privileged",
+        "description": "Can read event logs on a system.",
+        "danger_reason": "Log access can expose sensitive data and aid attack planning.",
+        "docs": {
+            "microsoft": "https://learn.microsoft.com/en-us/windows-server/identity/ad-ds/manage/understand-security-groups",
+        },
+    },
+    "Protected Users": {
+        "sid_rid": "S-1-5-21-<domain>-525",
+        "scope": "Global",
+        "tier": "Security Hardening",
+        "description": "Security group that enforces strict protections against credential theft.",
+        "danger_reason": (
+            "Not dangerous, but restrictive; misconfiguration can break authentication flows."
+        ),
+        "docs": {
+            "microsoft": "https://learn.microsoft.com/en-us/previous-versions/windows/it-pro/windows-server-2012-r2-and-2012/dn466518(v=ws.11)",
+        },
+    },
+    "Exchange Windows Permissions": {
+        "sid_rid": "Domain-specific RID (see docs)",
+        "scope": "Universal (Exchange)",
+        "tier": "Privileged",
+        "description": (
+            "Exchange security group granted permissions on many AD objects for Exchange "
+            "operations."
+        ),
+        "danger_reason": "Broad AD permissions can be abused if Exchange is compromised.",
+        "docs": {
+            "microsoft": "https://learn.microsoft.com/en-us/exchange/permissions/split-permissions/split-permissions",
+            "specterops": "https://specterops.io/blog/2023/06/22/what-is-tier-zero-part-1/",
         },
     },
 }
@@ -224,6 +296,7 @@ def _parse_bloodyad_output(output):
         "samaccountname": "sAMAccountName",
         "pwdlastset": "pwdLastSet",
         "description": "description",
+        "ms-ds-machineaccountquota": "machineAccountQuota",
     }
     parsed = {}
 
@@ -260,6 +333,27 @@ def _parse_bloodyad_membership_output(output):
             matches.append(value)
 
     return matches
+
+
+def _parse_bloodyad_members(output):
+    if not output:
+        return []
+
+    members = []
+    for line in output.splitlines():
+        match = re.search(r"member\s*[:=]\s*(.+)", line, re.IGNORECASE)
+        if not match:
+            continue
+        dn_value = match.group(1).strip().strip("[]")
+        dn_value = dn_value.strip().strip("\"").strip("'")
+        if not dn_value:
+            continue
+        first_rdn = dn_value.split(",", 1)[0]
+        name = clean_dn_name(first_rdn.strip())
+        if name and name.lower() != "domain admins":
+            members.append(name)
+
+    return sorted(set(members))
 
 # Index
 @main_bp.route("/", methods=["GET", "POST"])
@@ -490,6 +584,8 @@ def user_info():
     active_profile = get_active_profile()
     status_message = None
     error = None
+    domain_admins_message = None
+    domain_admins_error = None
 
     loaded_user = creds.get("username") if creds else None
 
@@ -564,27 +660,91 @@ def user_info():
                         "membership",
                         loaded_user or "",
                     ]
+                    domain_dn = domain_to_dn(creds.get("domain", ""))
+                    quota_command = [
+                        "bloodyAD",
+                        "--host",
+                        creds.get("dc_ip", "") or dc_host,
+                        "-d",
+                        creds.get("domain", ""),
+                        "-u",
+                        creds.get("username", ""),
+                        "-p",
+                        creds.get("password", ""),
+                        "get",
+                        "object",
+                        domain_dn,
+                        "--attr",
+                        "ms-DS-MachineAccountQuota",
+                    ]
                     membership_result = subprocess.run(
                         membership_command,
+                        capture_output=True,
+                        text=True,
+                    )
+                    quota_result = subprocess.run(
+                        quota_command,
                         capture_output=True,
                         text=True,
                     )
                     if membership_result.returncode != 0:
                         message = membership_result.stderr.strip() or "Unknown error"
                         error = f"bloodyAD membership failed: {message}"
+                    elif quota_result.returncode != 0:
+                        message = quota_result.stderr.strip() or "Unknown error"
+                        error = f"bloodyAD machine account quota failed: {message}"
                     else:
                         membership_output = (
                             membership_result.stdout or membership_result.stderr
                         )
+                        quota_output = quota_result.stdout or quota_result.stderr
                         group_names = _parse_bloodyad_membership_output(membership_output)
                         groups_text = ", ".join(sorted(set(group_names)))
+                        quota_parsed = _parse_bloodyad_output(quota_output)
                         upsert_user_info(
                             parsed.get("sAMAccountName") or loaded_user,
                             parsed.get("pwdLastSet"),
                             parsed.get("description"),
                             groups_text,
+                            quota_parsed.get("machineAccountQuota"),
                         )
                         status_message = "User information collected."
+        elif action == "collect_domain_admins":
+            missing = [
+                key
+                for key in ("username", "domain", "password", "dc_ip")
+                if not creds.get(key)
+            ]
+            if missing:
+                domain_admins_error = "Please submit credentials and domain settings first."
+            else:
+                command = [
+                    "bloodyAD",
+                    "--host",
+                    creds.get("dc_ip", ""),
+                    "-d",
+                    creds.get("domain", ""),
+                    "-u",
+                    creds.get("username", ""),
+                    "-p",
+                    creds.get("password", ""),
+                    "get",
+                    "object",
+                    "Domain Admins",
+                    "--attr",
+                    "member",
+                ]
+                result = subprocess.run(command, capture_output=True, text=True)
+                if result.returncode != 0:
+                    message = result.stderr.strip() or "Unknown error"
+                    domain_admins_error = f"bloodyAD failed: {message}"
+                else:
+                    members = _parse_bloodyad_members(result.stdout or result.stderr)
+                    replace_domain_admins(
+                        members,
+                        datetime.now(timezone.utc).isoformat(),
+                    )
+                    domain_admins_message = "Domain Admins collected."
 
     user_info = fetch_user_info(loaded_user) if loaded_user else None
     dangerous_groups = []
@@ -607,9 +767,12 @@ def user_info():
         active_profile=active_profile,
         status_message=status_message,
         error=error,
+        domain_admins_message=domain_admins_message,
+        domain_admins_error=domain_admins_error,
         user_info=user_info,
         dangerous_groups=dangerous_groups,
         dangerous_group_details=dangerous_group_details,
+        domain_admins=fetch_domain_admins(),
     )
 
 

@@ -65,6 +65,16 @@ def _migrate_schema(conn):
         _ensure_column(conn, "users", "ntlmHash", "text")
         _ensure_column(conn, "users", "lastSet", "timestamp")
         _ensure_column(conn, "users", "pwdLastSet", "text")
+        _ensure_column(conn, "users", "machineAccountQuota", "text")
+
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS domain_admins (
+            member text,
+            collected_at timestamp
+        )
+        """
+    )
 
 
 def _normalize_username(value):
@@ -335,7 +345,7 @@ def fetch_vault_users():
     return entries
 
 
-def upsert_user_info(username, pwd_last_set, description, groups=None):
+def upsert_user_info(username, pwd_last_set, description, groups=None, machine_account_quota=None):
     username = _normalize_username(username)
     if not username:
         return
@@ -344,18 +354,30 @@ def upsert_user_info(username, pwd_last_set, description, groups=None):
         cursor = conn.execute(
             """
             UPDATE users
-            SET description = ?, pwdLastSet = ?, groups = ?
+            SET description = ?, pwdLastSet = ?, groups = ?, machineAccountQuota = ?
             WHERE username = ?
             """,
-            (description or "", pwd_last_set or "", groups or "", username),
+            (
+                description or "",
+                pwd_last_set or "",
+                groups or "",
+                machine_account_quota or "",
+                username,
+            ),
         )
         if cursor.rowcount == 0:
             conn.execute(
                 """
-                INSERT INTO users (username, description, pwdLastSet, groups)
-                VALUES (?, ?, ?, ?)
+                INSERT INTO users (username, description, pwdLastSet, groups, machineAccountQuota)
+                VALUES (?, ?, ?, ?, ?)
                 """,
-                (username, description or "", pwd_last_set or "", groups or ""),
+                (
+                    username,
+                    description or "",
+                    pwd_last_set or "",
+                    groups or "",
+                    machine_account_quota or "",
+                ),
             )
         conn.commit()
     finally:
@@ -370,7 +392,7 @@ def fetch_user_info(username):
     try:
         row = conn.execute(
             """
-            SELECT username, description, pwdLastSet, groups
+            SELECT username, description, pwdLastSet, groups, machineAccountQuota
             FROM users
             WHERE username = ?
             """,
@@ -387,5 +409,41 @@ def fetch_user_info(username):
         "pwdLastSet": row["pwdLastSet"],
         "description": row["description"],
         "groups": row["groups"],
+        "machineAccountQuota": row["machineAccountQuota"],
+    }
+
+
+def replace_domain_admins(members, collected_at):
+    conn = get_db()
+    try:
+        conn.execute("DELETE FROM domain_admins")
+        if members:
+            conn.executemany(
+                "INSERT INTO domain_admins (member, collected_at) VALUES (?, ?)",
+                [(member, collected_at) for member in members],
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def fetch_domain_admins():
+    conn = get_db()
+    try:
+        rows = conn.execute(
+            """
+            SELECT member, collected_at
+            FROM domain_admins
+            ORDER BY member
+            """,
+        ).fetchall()
+    finally:
+        conn.close()
+
+    members = [row["member"] for row in rows if row["member"]]
+    collected_at = rows[0]["collected_at"] if rows else None
+    return {
+        "members": members,
+        "collected_at": collected_at,
     }
 
