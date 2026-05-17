@@ -79,6 +79,8 @@ _Commit references:_
 - [database implemented](https://github.com/Mmo-kali/Capstone-Group1-2026-/commit/285a68f6d12cce846e93536291b9eb0a370a941c)  
 - [Delete junk](https://github.com/Mmo-kali/Capstone-Group1-2026-/commit/f8767e0cdad0918b852bca812c37ab837fe79eb1)
 
+---
+
 ### Week 3 - (2026-05-11 to 2026-05-17)
 **User Information Enumeration Added**  
 Implemented Active Directory user enumeration with `bloodyAD` to collect attributes (sAMAccountName, pwdLastSet, description), group memberships, and store them in the database for display in the UI.
