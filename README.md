@@ -57,7 +57,7 @@
 
 # What was completed in the second term 
 
-### Week 2 - (2026-05-10)
+### Week 2 - (2026-05-04 to 2026-05-10)
 - **Major Feature: Hashcat Integration Added**  
   Integrated Hashcat into the application, enabling users to perform password hash cracking directly through the Cracking Station. This significantly expands the tool’s capabilities for automated hash analysis and validation.
 
