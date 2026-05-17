@@ -98,9 +98,7 @@ Expanded the dangerous group list and enhanced tooltips with detailed descriptio
 Added UI improvements for group pills, tooltips, and warnings to improve visibility of privilege and risk.
 
 **Commit references:**  
-- added user information enumeration — https://github.com/Mmo-kali/Capstone-Group1-2026-/commit/131b1723965132ce59a4687072fac83b002fb9d7  
-- User info collection + dangerous group UI + DB updates — https://github.com/Mmo-kali/Capstone-Group1-2026-/commit/e5f481960ae3cc673a7c7101c446f145c0177d8d  
-- User info collection + dangerous group UI + DB updates (Part2) — https://github.com/Mmo-kali/Capstone-Group1-2026-/commit/60dba38aa9d7f55fee14c4ae8947e6845b027269  
-
-
+- [added user information enumeration](https://github.com/Mmo-kali/Capstone-Group1-2026-/commit/131b1723965132ce59a4687072fac83b002fb9d7)  
+- [User info collection + dangerous group UI + DB updates](https://github.com/Mmo-kali/Capstone-Group1-2026-/commit/e5f481960ae3cc673a7c7101c446f145c0177d8d)  
+- [User info collection + dangerous group UI + DB updates (Part 2)](https://github.com/Mmo-kali/Capstone-Group1-2026-/commit/60dba38aa9d7f55fee14c4ae8947e6845b027269)
 ---
