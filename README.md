@@ -79,4 +79,26 @@ _Commit references:_
 - [database implemented](https://github.com/Mmo-kali/Capstone-Group1-2026-/commit/285a68f6d12cce846e93536291b9eb0a370a941c)  
 - [Delete junk](https://github.com/Mmo-kali/Capstone-Group1-2026-/commit/f8767e0cdad0918b852bca812c37ab837fe79eb1)
 
+### Week 3 - (2026-05-11 to 2026-05-17)
+**User Information Enumeration Added**  
+Implemented Active Directory user enumeration with `bloodyAD` to collect attributes (sAMAccountName, pwdLastSet, description), group memberships, and store them in the database for display in the UI.
+
+**Domain Admins Enumeration Added**  
+Added a Domain Admins collection workflow, including storage in a new `domain_admins` table and a UI section to display collected members.
+
+**Machine Account Quota Visibility**  
+Pulled and displayed `ms-DS-MachineAccountQuota` with a dedicated tooltip explaining its security impact.
+
+**Dangerous Group Intelligence Expanded**  
+Expanded the dangerous group list and enhanced tooltips with detailed descriptions and documentation links.
+
+**User Info UI Enhancements**  
+Added UI improvements for group pills, tooltips, and warnings to improve visibility of privilege and risk.
+
+**Commit references:**  
+- added user information enumeration — https://github.com/Mmo-kali/Capstone-Group1-2026-/commit/131b1723965132ce59a4687072fac83b002fb9d7  
+- User info collection + dangerous group UI + DB updates — https://github.com/Mmo-kali/Capstone-Group1-2026-/commit/e5f481960ae3cc673a7c7101c446f145c0177d8d  
+- User info collection + dangerous group UI + DB updates (Part2) — https://github.com/Mmo-kali/Capstone-Group1-2026-/commit/60dba38aa9d7f55fee14c4ae8947e6845b027269  
+
+
 ---
