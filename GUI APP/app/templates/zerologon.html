@@ -1,0 +1,175 @@
+{% extends 'base.html' %}
+
+{% block title %}Exploitation | AutoMapper{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <svg viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+  <h1 class="page-title">Exploitation</h1>
+</div>
+
+<section class="card-grid zerologon-grid">
+  <div class="card restore-card">
+    <div class="card-header">
+      <svg viewBox="0 0 24 24"><path d="M20 7h-3V4a2 2 0 0 0-2-2H9a2 2 0 0 0-2 2v3H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/></svg>
+      <h1>Zerologon</h1>
+    </div>
+
+    <div class="tab-bar">
+      <button class="tab-btn active" data-tab="zero-exploit-tab">Exploit</button>
+      <button class="tab-btn" data-tab="zero-info-tab">Info</button>
+      <button class="tab-btn" data-tab="zero-rec-tab">Recommendation</button>
+    </div>
+
+    <div id="zero-exploit-tab" class="tab-content active">
+      <p class="subtitle">Check for Zerologon (CVE-2020-1472) vulnerability or attempt exploitation.</p>
+
+      {% if error %}
+      <div class="notice error">{{ error }}</div>
+      {% elif status_message %}
+      <div class="notice">{{ status_message }}</div>
+      {% endif %}
+
+      <div class="output">
+        <div class="output-row">
+          <span class="label">DC FQDN</span>
+          <span class="value">{{ creds.dc_fqdn or '—' }}</span>
+        </div>
+        <div class="output-row">
+          <span class="label">DC IP Address</span>
+          <span class="value">{{ creds.dc_ip or '—' }}</span>
+        </div>
+      </div>
+
+      <form method="POST" class="actions">
+        <button class="btn secondary" name="action" value="check">
+          Check Zerologon
+        </button>
+        <button class="btn" name="action" value="exploit">
+          Exploit Zerologon
+        </button>
+      </form>
+    </div>
+
+    <div id="zero-info-tab" class="tab-content">
+      <div class="info-panel">
+        <div class="info-header">
+          <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+          <h2>About Zerologon</h2>
+        </div>
+        <p class="info-text">
+          Zerologon (CVE-2020-1472) is a critical flaw in the Netlogon secure channel that allows
+          unauthenticated attackers to spoof a domain controller and reset the machine account
+          password. Successful exploitation can lead to full domain compromise.
+        </p>
+      </div>
+    </div>
+
+    <div id="zero-rec-tab" class="tab-content">
+      <div class="info-panel">
+        <div class="info-header">
+          <svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>
+          <h2>Recommendation</h2>
+        </div>
+        <p class="info-text">
+          Apply the official Microsoft patch for CVE-2020-1472 and enforce Netlogon secure channel
+          protections. Ensure all domain controllers are updated and monitor for Netlogon secure
+          channel events that indicate spoofing attempts.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <svg viewBox="0 0 24 24"><path d="M21 7h-6V5a3 3 0 0 0-6 0v2H3v14h18V7zm-8-2a1 1 0 0 1 2 0v2h-2V5zm8 14H5V9h16v10z"/></svg>
+      <h1>Restore Password</h1>
+    </div>
+    <p class="subtitle">Use bloodyAD with admin credentials to restore the machine account password.</p>
+
+    <div class="output">
+      <div class="output-row">
+        <span class="label">Domain</span>
+        <span class="value">{{ creds.domain or '—' }}</span>
+      </div>
+      <div class="output-row">
+        <span class="label">DC IP Address</span>
+        <span class="value">{{ creds.dc_ip or '—' }}</span>
+      </div>
+    </div>
+
+    <form method="POST" class="form">
+      <div class="field">
+        <label>
+          <input type="checkbox" name="use_profile" value="1" {% if restore_use_profile %}checked{% endif %} />
+          Use saved profile credentials
+        </label>
+      </div>
+      <div class="field">
+        <label for="restore-profile">Profile</label>
+        <select id="restore-profile" name="restore_profile" class="input">
+          <option value="">Select a profile</option>
+          {% for name in profiles.keys()|sort %}
+          <option value="{{ name }}" {% if name == selected_restore_profile or name == active_profile %}selected{% endif %}>
+            {{ name }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label for="machine-account">Machine account (e.g., DC01$)</label>
+        <input
+          id="machine-account"
+          name="machine_account"
+          type="text"
+          class="input"
+          placeholder="DC01$"
+        />
+      </div>
+      <div class="field">
+        <label for="new-password">New machine account password</label>
+        <input
+          id="new-password"
+          name="new_password"
+          type="password"
+          class="input"
+          placeholder="Enter new password"
+        />
+      </div>
+      <div class="actions">
+        <button class="btn" name="action" value="restore">
+          Restore Password
+        </button>
+      </div>
+    </form>
+  </div>
+</section>
+
+<section class="card result-card">
+  <div class="card-header">
+  <svg viewBox="0 0 24 24">
+    <path d="M3 5h18v2H3V5zm0 6h18v2H3v-2zm0 6h18v2H3v-2z"/>
+  </svg>
+
+  <div class="header-with-tooltip">
+    <h1>Zerologon Results</h1>
+    <div class="tooltip-container">
+      <span class="info-icon">?</span>
+      <span class="tooltip-text">
+        Zerologon exploitation resets the domain controller machine account password. Restore it
+        immediately after testing if this system is in production.
+      </span>
+    </div>
+  </div>
+</div>
+{% if results %}
+  <pre class="result-box">{{ results | join('\n') }}</pre>
+{% endif %}
+
+<div class="actions">
+  <a class="btn secondary" href="{{ url_for('main.dcsync') }}">
+    Run DCSync
+  </a>
+</div>
+</section>
+{% endblock %}

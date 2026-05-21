@@ -187,6 +187,40 @@ body {
   }
 }
 
+.zerologon-grid .card {
+  padding: 28px;
+}
+
+.zerologon-grid .card-header {
+  gap: 12px;
+}
+
+.zerologon-grid .card-header h1 {
+  letter-spacing: 0.2px;
+}
+
+.zerologon-grid .output-row {
+  background: #1b1b2a;
+}
+
+.zerologon-grid .actions {
+  justify-content: flex-start;
+  border-top: none;
+  padding-top: 0;
+}
+
+.zerologon-grid .actions .btn {
+  min-width: 150px;
+}
+
+.zerologon-grid .restore-card .actions {
+  justify-content: flex-end;
+}
+
+.zerologon-grid .restore-card .form {
+  margin-top: 14px;
+}
+
 .card-header {
   display: flex;
   align-items: center;

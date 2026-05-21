@@ -63,6 +63,13 @@
             DCsync Attack
           </a>
           <a
+            href="{{ url_for('main.zerologon') }}"
+            class="nav-item {% if request.endpoint == 'main.zerologon' %}active{% endif %}"
+          >
+            <svg viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+            Zerologon
+          </a>
+          <a
             href="{{ url_for('main.vault') }}"
             class="nav-item {% if request.endpoint == 'main.vault' %}active{% endif %}"
           >
