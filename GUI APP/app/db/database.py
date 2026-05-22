@@ -41,6 +41,7 @@ def _migrate_schema(conn):
         _ensure_column(conn, "profiles", "username", "text")
         _ensure_column(conn, "profiles", "dc_fqdn", "text")
         _ensure_column(conn, "profiles", "profile_description", "text")
+        _ensure_column(conn, "profiles", "ntlm_hash", "text")
 
         columns = _table_columns(conn, "profiles")
         if "fqdn" in columns:
@@ -88,7 +89,7 @@ def fetch_profiles():
     try:
         rows = conn.execute(
             """
-            SELECT name, username, password, domain, dc_ip, dc_fqdn, profile_description
+            SELECT name, username, password, ntlm_hash, domain, dc_ip, dc_fqdn, profile_description
             FROM profiles
             ORDER BY name
             """
@@ -101,6 +102,7 @@ def fetch_profiles():
         profiles[row["name"]] = {
             "username": row["username"],
             "password": row["password"],
+            "ntlm_hash": row["ntlm_hash"],
             "domain": row["domain"],
             "dc_ip": row["dc_ip"],
             "dc_fqdn": row["dc_fqdn"],
@@ -114,7 +116,7 @@ def get_profile(name):
     try:
         row = conn.execute(
             """
-            SELECT name, username, password, domain, dc_ip, dc_fqdn, profile_description
+            SELECT name, username, password, ntlm_hash, domain, dc_ip, dc_fqdn, profile_description
             FROM profiles
             WHERE name = ?
             """,
@@ -129,6 +131,7 @@ def get_profile(name):
     return {
         "username": row["username"],
         "password": row["password"],
+        "ntlm_hash": row["ntlm_hash"],
         "domain": row["domain"],
         "dc_ip": row["dc_ip"],
         "dc_fqdn": row["dc_fqdn"],
@@ -144,6 +147,7 @@ def upsert_profile(profile_name, profile_data):
             UPDATE profiles
             SET username = ?,
                 password = ?,
+                ntlm_hash = ?,
                 domain = ?,
                 dc_ip = ?,
                 dc_fqdn = ?,
@@ -153,6 +157,7 @@ def upsert_profile(profile_name, profile_data):
             (
                 profile_data.get("username", ""),
                 profile_data.get("password", ""),
+                profile_data.get("ntlm_hash", ""),
                 profile_data.get("domain", ""),
                 profile_data.get("dc_ip", ""),
                 profile_data.get("dc_fqdn", ""),
@@ -167,17 +172,19 @@ def upsert_profile(profile_name, profile_data):
                     name,
                     username,
                     password,
+                    ntlm_hash,
                     domain,
                     dc_ip,
                     dc_fqdn,
                     profile_description
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     profile_name,
                     profile_data.get("username", ""),
                     profile_data.get("password", ""),
+                    profile_data.get("ntlm_hash", ""),
                     profile_data.get("domain", ""),
                     profile_data.get("dc_ip", ""),
                     profile_data.get("dc_fqdn", ""),

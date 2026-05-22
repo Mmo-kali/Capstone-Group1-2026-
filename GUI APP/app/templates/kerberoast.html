@@ -39,6 +39,10 @@
         <span class="value">{{ '*' * (creds.password|length) if creds.password else '—' }}</span>
       </div>
       <div class="output-row">
+        <span class="label">NTLM Hash</span>
+        <span class="value">{{ '*' * (creds.ntlm_hash|length) if creds.ntlm_hash else '—' }}</span>
+      </div>
+      <div class="output-row">
         <span class="label">Domain</span>
         <span class="value">{{ creds.domain or '—' }}</span>
       </div>
@@ -48,13 +52,31 @@
       </div>
     </div>
 
-    <form method="POST" class="actions">
-      <button class="btn secondary" name="action" value="check">
-        Check for Kerberoasting
-      </button>
-      <button class="btn" name="action" value="exploit">
-        Exploit Kerberoasting
-      </button>
+    <form method="POST" class="form">
+      {% if creds.password and creds.ntlm_hash %}
+      <div class="field">
+        <label>Auth Method</label>
+        <label>
+          <input type="radio" name="auth_method" value="password" {% if auth_method != 'ntlm' %}checked{% endif %} />
+          Password
+        </label>
+        <label>
+          <input type="radio" name="auth_method" value="ntlm" {% if auth_method == 'ntlm' %}checked{% endif %} />
+          NTLM Hash
+        </label>
+      </div>
+      {% else %}
+      <input type="hidden" name="auth_method" value="{{ 'ntlm' if creds.ntlm_hash else 'password' }}" />
+      {% endif %}
+
+      <div class="actions">
+        <button class="btn secondary" name="action" value="check">
+          Check for Kerberoasting
+        </button>
+        <button class="btn" name="action" value="exploit">
+          Exploit Kerberoasting
+        </button>
+      </div>
     </form>
   </div>
 

@@ -29,6 +29,11 @@ class UserForm(FlaskForm):
         validators=[Optional()],
         render_kw={"placeholder": "Enter password"},
     )
+    ntlm_hash = StringField(
+        "NTLM Hash",
+        validators=[Optional()],
+        render_kw={"placeholder": "31d6cfe0d16ae931b73c59d7e0c089c0"},
+    )
     domain = StringField(
         "Domain",
         validators=[Optional()],

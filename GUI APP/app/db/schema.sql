@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS profiles (
     name text primary key,
     username text,
     password text,
+    ntlm_hash text,
     domain text,
     dc_ip text,
     dc_fqdn text,

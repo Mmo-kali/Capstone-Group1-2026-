@@ -70,6 +70,13 @@
             Zerologon
           </a>
           <a
+            href="{{ url_for('main.writable') }}"
+            class="nav-item {% if request.endpoint == 'main.writable' %}active{% endif %}"
+          >
+            <svg viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+            DACL
+          </a>
+          <a
             href="{{ url_for('main.vault') }}"
             class="nav-item {% if request.endpoint == 'main.vault' %}active{% endif %}"
           >

