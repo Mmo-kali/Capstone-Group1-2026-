@@ -102,3 +102,31 @@ Added UI improvements for group pills, tooltips, and warnings to improve visibil
 - [User info collection + dangerous group UI + DB updates](https://github.com/Mmo-kali/Capstone-Group1-2026-/commit/e5f481960ae3cc673a7c7101c446f145c0177d8d)  
 - [User info collection + dangerous group UI + DB updates (Part 2)](https://github.com/Mmo-kali/Capstone-Group1-2026-/commit/60dba38aa9d7f55fee14c4ae8947e6845b027269)
 ---
+
+### Week 4 - (2026-05-18 to 2026-05-24)
+
+- **Pass-the-Hash (PTH) authentication support added**
+  - Added NTLM hash input to saved profiles (`ntlm_hash`).
+  - Added auth method selection (Password vs NTLM Hash) in exploit workflows.
+  - Integrated NTLM-hash auth into:
+    - Kerberoast (`impacket-GetUserSPNs -hashes`)
+    - AS-REP Roast (`impacket-GetNPUsers -hashes`)
+    - DCSync (`impacket-secretsdump -hashes`)
+    - bloodyAD-based checks/actions (`-p :<ntlm_hash> -f rc4`)
+
+- **DACL abuse functionality added (GenericAll / writable object abuse)**
+  - Added `/writable` workflow to enumerate writable/GenericAll targets using `bloodyAD get writable --right WRITE`.
+  - Added exploitation step to reset target user passwords using `bloodyAD set password`.
+  - Added UI page to display discovered GenericAll targets and trigger password-change action per target.
+
+- **DCSync rights detection improved**
+  - Added bloodyAD-based DCSync privilege check by resolving and parsing `nTSecurityDescriptor`.
+  - Detects replication rights tied to DCSync and reports if user has required access.
+
+- **DCSync output handling and hash workflow improvements**
+  - Added parsing/storage of dumped NTLM hashes from DCSync results.
+  - Stored hashes can be used in the cracking workflow and for follow-on authentication techniques.
+
+_Commit references (last 7 days):_  
+- [Delete sessionresume_SagDRCBg](https://github.com/Mmo-kali/Capstone-Group1-2026-/commit/896086d7ee6be4133087e1d109f8e8f4eeb139aa)  
+- [Update .gitignore](https://github.com/Mmo-kali/Capstone-Group1-2026-/commit/72e3a0eadfd255b69ecd03a85095068f0e79d72f)
