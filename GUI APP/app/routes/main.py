@@ -812,6 +812,7 @@ def zerologon():
 
     dc_host = (creds.get("dc_fqdn") or "").strip()
     dc_name = dc_host.split(".", 1)[0] if dc_host else ""
+    is_admin_user = (creds.get("username") or "").strip().lower() == "administrator"
 
     def format_dcsync_results(dcsync_results):
         lines = []
@@ -836,6 +837,8 @@ def zerologon():
 
         if not dc_name or not creds.get("dc_ip"):
             error = "Please provide DC FQDN and DC IP in the profile settings."
+        elif not is_admin_user:
+            error = "Zerologon actions require the Administrator account to be selected."
         else:
             if action == "restore":
                 machine_account = (request.form.get("machine_account") or "").strip()
