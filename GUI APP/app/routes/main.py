@@ -461,6 +461,8 @@ def _parse_bloodyad_membership_output(output):
         if value:
             matches.append(value)
 
+    return matches
+
 
 def _parse_bloodyad_members(output):
     if not output:
@@ -1105,6 +1107,7 @@ def user_info():
             missing = [
                 key
                 for key in ("username", "domain", "password")
+                if not creds.get(key)
             ]
             dc_host = creds.get("dc_fqdn") or creds.get("dc_ip")
             if missing or not dc_host:
