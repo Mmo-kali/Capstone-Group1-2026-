@@ -41,7 +41,7 @@ from ..utils.kerberoast import (
 from ..utils.zerologon import (
     check_zerologon,
     run_zerologon,
-    restore_machine_account_password_bloodyad,
+    restore_machine_account_password_impacket,
 )
 
 REQUIRED_CRED_KEYS = ("username", "domain", "dc_ip")
@@ -833,9 +833,7 @@ def zerologon():
 
     if request.method == "POST":
         action = request.form.get("action")
-        selected_restore_profile = (request.form.get("restore_profile") or "").strip()
-        use_profile = request.form.get("use_profile") == "1"
-        restore_use_profile = use_profile
+        restore_use_profile = False
 
         if not dc_name or not creds.get("dc_ip"):
             error = "Please provide DC FQDN and DC IP in the profile settings."
@@ -844,32 +842,18 @@ def zerologon():
         else:
             if action == "restore":
                 machine_account = (request.form.get("machine_account") or "").strip()
-                new_password = (request.form.get("new_password") or "").strip()
-                if not machine_account or not new_password:
-                    error = "Please provide the machine account and new password."
+                if not machine_account:
+                    error = "Please provide the machine account."
+                elif not creds.get("domain") or not creds.get("dc_ip"):
+                    error = "Please provide domain and DC IP in the profile settings."
+                elif not dc_name:
+                    error = "Please provide DC FQDN in the profile settings."
                 else:
-                    restore_creds = creds
-                    if use_profile:
-                        if not selected_restore_profile:
-                            error = "Please select a profile for restore credentials."
-                        elif selected_restore_profile not in profiles:
-                            error = "Selected profile not found."
-                        else:
-                            restore_creds = profiles.get(selected_restore_profile, {})
-
-                    if not error:
-                        missing = _missing_creds(restore_creds)
-                        if missing:
-                            error = "Selected profile is missing required credentials."
-
-                if not error:
-                    results = restore_machine_account_password_bloodyad(
-                        restore_creds.get("domain"),
-                        restore_creds.get("username"),
-                        restore_creds.get("password"),
-                        restore_creds.get("dc_ip"),
+                    results = restore_machine_account_password_impacket(
+                        creds.get("domain"),
+                        creds.get("dc_ip"),
+                        dc_name,
                         machine_account,
-                        new_password,
                     )
             elif action == "exploit":
                 results = run_zerologon(dc_name, creds["dc_ip"])
@@ -895,7 +879,7 @@ def zerologon():
         action,
         profiles=profiles,
         active_profile=active_profile,
-        selected_restore_profile=selected_restore_profile,
+        selected_restore_profile=None,
         restore_use_profile=restore_use_profile,
     )
 

