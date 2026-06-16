@@ -1122,6 +1122,11 @@ select option {
   box-shadow: var(--shadow-md);
 }
 
+.app-main > .card + .result-card,
+.app-main > .card-grid + .result-card {
+  margin-top: 12px;
+}
+
 .app-footer {
   background: var(--sidebar);
   border-top: 1px solid var(--border);
