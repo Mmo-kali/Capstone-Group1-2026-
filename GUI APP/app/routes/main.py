@@ -653,6 +653,12 @@ def index():
     )
 
 ############################### Exploits ###############################
+@main_bp.route("/manual")
+def manual():
+    """Render the application usage manual."""
+    return render_template("manual.html")
+
+
 @main_bp.route("/kerberoast", methods=["GET", "POST"])
 def kerberoast():
     """Render the exploitation actions and handle kerberoast execution."""

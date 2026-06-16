@@ -1,0 +1,131 @@
+{% extends 'base.html' %}
+
+{% block title %}Manual | AutoMapper{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <svg viewBox="0 0 24 24"><path d="M18 2H7c-1.66 0-3 1.34-3 3v14c0 1.1.9 2 2 2h13c.55 0 1-.45 1-1V4c0-1.1-.9-2-2-2zm0 17H6V5c0-.55.45-1 1-1h11v15zM8 7h8v2H8V7zm0 4h8v2H8v-2zm0 4h5v2H8v-2z"/></svg>
+  <h1 class="page-title">Manual</h1>
+</div>
+
+<section class="manual-hero">
+  <div>
+    <h1>AutoMapper Usage Guide</h1>
+    <p>Follow the workflow from profile setup to attack modules, saved hashes, and recovery steps.</p>
+  </div>
+  <a class="btn" href="{{ url_for('main.index') }}">Start With Profile</a>
+</section>
+
+<div class="manual-layout">
+  <aside class="manual-toc">
+    <a href="#workflow">Workflow</a>
+    <a href="#profile">Profile Setup</a>
+    <a href="#modules">Attack Modules</a>
+    <a href="#vault">Password Vault</a>
+    <a href="#recovery">Recovery Notes</a>
+  </aside>
+
+  <div class="manual-content">
+    <section class="manual-section" id="workflow">
+      <div class="manual-section-header">
+        <span class="manual-step">1</span>
+        <h2>Recommended Workflow</h2>
+      </div>
+      <div class="manual-grid">
+        <div class="manual-card">
+          <h3>Create or Select a Profile</h3>
+          <p>Save domain credentials, DC IP, domain name, and DC FQDN before running any module.</p>
+        </div>
+        <div class="manual-card">
+          <h3>Run Checks First</h3>
+          <p>Use check actions to confirm targets and permissions before running exploit actions.</p>
+        </div>
+        <div class="manual-card">
+          <h3>Review Results</h3>
+          <p>Exploit output appears in the right or lower results panel, depending on the module layout.</p>
+        </div>
+        <div class="manual-card">
+          <h3>Open Password Vault</h3>
+          <p>When hashes are saved, Password Vault is highlighted as the next step in the sidebar.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="manual-section" id="profile">
+      <div class="manual-section-header">
+        <span class="manual-step">2</span>
+        <h2>Profile Setup</h2>
+      </div>
+      <div class="manual-panel">
+        <div class="manual-list">
+          <div><strong>Username</strong><span>Domain user used by the modules.</span></div>
+          <div><strong>Password / NTLM Hash</strong><span>Provide at least one authentication method.</span></div>
+          <div><strong>Domain</strong><span>Example: <code>old.gikyon.local</code></span></div>
+          <div><strong>DC IP</strong><span>Direct IP address of the domain controller.</span></div>
+          <div><strong>DC FQDN</strong><span>Example: <code>DC02.old.gikyon.local</code></span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="manual-section" id="modules">
+      <div class="manual-section-header">
+        <span class="manual-step">3</span>
+        <h2>Attack Modules</h2>
+      </div>
+      <div class="manual-module-list">
+        <div class="manual-module">
+          <h3>Kerberoasting</h3>
+          <p>Checks for service accounts with SPNs and requests TGS hashes for offline cracking.</p>
+          <a href="{{ url_for('main.kerberoast') }}">Open Kerberoasting</a>
+        </div>
+        <div class="manual-module">
+          <h3>AS-REP Roasting</h3>
+          <p>Finds accounts without Kerberos preauthentication and requests AS-REP hashes.</p>
+          <a href="{{ url_for('main.asreproast') }}">Open AS-REP Roasting</a>
+        </div>
+        <div class="manual-module">
+          <h3>DCSync</h3>
+          <p>Checks replication rights and dumps NTLM material when the account has DCSync privileges.</p>
+          <a href="{{ url_for('main.dcsync') }}">Open DCSync</a>
+        </div>
+        <div class="manual-module">
+          <h3>Zerologon</h3>
+          <p>Checks or exploits CVE-2020-1472, then supports machine account password restoration.</p>
+          <a href="{{ url_for('main.zerologon') }}">Open Zerologon</a>
+        </div>
+        <div class="manual-module">
+          <h3>DACL</h3>
+          <p>Lists GenericAll targets and supports password changes where delegated rights allow it.</p>
+          <a href="{{ url_for('main.writable') }}">Open DACL</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="manual-section" id="vault">
+      <div class="manual-section-header">
+        <span class="manual-step">4</span>
+        <h2>Password Vault</h2>
+      </div>
+      <div class="manual-panel manual-split">
+        <p>Kerberoast, AS-REP, and DCSync exploit results are stored in the vault when hashes are collected. The sidebar highlights Password Vault with a next-step badge after successful capture.</p>
+        <a class="btn secondary" href="{{ url_for('main.vault') }}">Open Vault</a>
+      </div>
+    </section>
+
+    <section class="manual-section" id="recovery">
+      <div class="manual-section-header">
+        <span class="manual-step">5</span>
+        <h2>Recovery Notes</h2>
+      </div>
+      <div class="manual-warning">
+        <h3>Zerologon Restore</h3>
+        <p>After a successful Zerologon exploit, restore the domain controller machine account password immediately using the Restore Password panel. Confirm the restore result before leaving the module.</p>
+      </div>
+      <div class="manual-warning">
+        <h3>Operational Safety</h3>
+        <p>Use this tool only in authorized lab or assessment environments. Validate target details before exploit actions, and keep saved credentials and hashes protected.</p>
+      </div>
+    </section>
+  </div>
+</div>
+{% endblock %}
