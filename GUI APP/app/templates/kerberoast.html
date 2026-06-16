@@ -8,141 +8,166 @@
   <h1 class="page-title">Exploitation</h1>
 </div>
 
-<section class="card">
-  <div class="card-header">
-    <svg viewBox="0 0 24 24"><path d="M20 7h-3V4a2 2 0 0 0-2-2H9a2 2 0 0 0-2 2v3H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/></svg>
-    <h1>Kerberoasting</h1>
+<div class="exploitation-container">
+  <!-- LEFT PANE: Controls -->
+  <div class="exploitation-pane controls">
+    <section class="card">
+      <div class="card-header">
+        <svg viewBox="0 0 24 24"><path d="M20 7h-3V4a2 2 0 0 0-2-2H9a2 2 0 0 0-2 2v3H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/></svg>
+        <h1>Kerberoasting</h1>
+      </div>
+
+      <div class="tab-bar">
+        <button class="tab-btn active" data-tab="exploit-tab">Exploit</button>
+        <button class="tab-btn" data-tab="info-tab">Info</button>
+        <button class="tab-btn" data-tab="rec-tab">Recommendation</button>
+      </div>
+
+      <div id="exploit-tab" class="tab-content active">
+        <p class="subtitle">Check for kerberoastable users or request TGS hashes.</p>
+
+        {% if error %}
+        <div class="notice error">{{ error }}</div>
+        {% elif status_message %}
+        <div class="notice">{{ status_message }}</div>
+        {% endif %}
+
+        <div class="credentials-section-label">Target Credentials</div>
+        <div class="credentials-grid">
+          <div class="field-card">
+            <label class="field-label">Username</label>
+            <div class="field-value {% if not creds.username %}empty{% endif %}">{{ creds.username or '—' }}</div>
+          </div>
+          <div class="field-card">
+            <label class="field-label">Password</label>
+            <div class="field-value {% if not creds.password %}empty{% endif %}">{{ '*' * (creds.password|length) if creds.password else '—' }}</div>
+          </div>
+          <div class="field-card full-width">
+            <label class="field-label">NTLM Hash</label>
+            <div class="field-value {% if not creds.ntlm_hash %}empty{% endif %}">{{ '*' * (creds.ntlm_hash|length) if creds.ntlm_hash else '—' }}</div>
+          </div>
+          <div class="field-card">
+            <label class="field-label">Domain</label>
+            <div class="field-value {% if not creds.domain %}empty{% endif %}">{{ creds.domain or '—' }}</div>
+          </div>
+          <div class="field-card">
+            <label class="field-label">DC IP Address</label>
+            <div class="field-value {% if not creds.dc_ip %}empty{% endif %}">{{ creds.dc_ip or '—' }}</div>
+          </div>
+        </div>
+
+        <form method="POST" class="form">
+          {% if creds.password and creds.ntlm_hash %}
+          <div class="field">
+            <label>Auth Method</label>
+            <div style="display: flex; gap: 16px; margin-top: 6px;">
+              <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 0.9rem;">
+                <input type="radio" name="auth_method" value="password" {% if auth_method != 'ntlm' %}checked{% endif %} style="cursor: pointer;" />
+                Password
+              </label>
+              <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 0.9rem;">
+                <input type="radio" name="auth_method" value="ntlm" {% if auth_method == 'ntlm' %}checked{% endif %} style="cursor: pointer;" />
+                NTLM Hash
+              </label>
+            </div>
+          </div>
+          {% else %}
+          <input type="hidden" name="auth_method" value="{{ 'ntlm' if creds.ntlm_hash else 'password' }}" />
+          {% endif %}
+
+          <div class="actions">
+            <button class="btn secondary" name="action" value="check" type="submit">
+              Check for Kerberoasting
+            </button>
+            <button class="btn" name="action" value="exploit" type="submit">
+              Exploit Kerberoasting
+            </button>
+          </div>
+        </form>
+
+        <div style="margin-top: 12px;">
+          <div class="command-preview-label">Command Preview</div>
+          <div class="command-preview">
+            <span>$ python -m impacket.GetUserSPNs 'gikyon.local/Administrator' -dc-ip 192.168.5.3</span>
+          </div>
+        </div>
+      </div>
+
+      <div id="info-tab" class="tab-content">
+        <div class="info-panel">
+          <div class="info-header">
+            <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+            <h2>About Kerberoasting</h2>
+          </div>
+          <p class="info-text">
+            Kerberoasting is an Active Directory attack technique that targets service accounts with Service Principal Names (SPNs). Any authenticated domain user can request service tickets for these accounts — no administrative privileges are required, as this behavior is a normal feature of Microsoft's Kerberos implementation. It is not an exploit of a vulnerability, but rather an abuse of the design combined with weak or poorly managed service account passwords. The ticket is encrypted with the service account's password, allowing an attacker to extract it and attempt offline cracking. Because service account passwords are often old, weak, and not regularly rotated, they may be easier to recover. If compromised, these accounts may have elevated privileges or even local administrator rights on certain systems, enabling lateral or vertical movement within the network.
+          </p>
+        </div>
+      </div>
+
+      <div id="rec-tab" class="tab-content">
+        <div class="info-panel">
+          <div class="info-header">
+            <svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>
+            <h2>Recommendation</h2>
+          </div>
+          <p class="info-text">
+            Use strong, long passwords for all service accounts and ensure they are rotated regularly, or preferably replace them with Group Managed Service Accounts (gMSAs) that automatically manage and rotate passwords.
+          </p>
+        </div>
+      </div>
+    </section>
   </div>
 
-  <div class="tab-bar">
-    <button class="tab-btn active" data-tab="exploit-tab">Exploit</button>
-    <button class="tab-btn" data-tab="info-tab">Info</button>
-    <button class="tab-btn" data-tab="rec-tab">Recommendation</button>
-  </div>
+  <!-- RIGHT PANE: Results -->
+  <div class="exploitation-pane results">
+    <section class="card result-card">
+      <div class="card-header">
+        <svg viewBox="0 0 24 24">
+          <path d="M3 5h18v2H3V5zm0 6h18v2H3v-2zm0 6h18v2H3v-2z"/>
+        </svg>
+        <div class="header-with-tooltip">
+          <h1>Kerberoasting Results</h1>
+          <div class="tooltip-container">
+            <span class="info-icon">?</span>
+            <span class="tooltip-text">
+              Collected hash can be cracked using tools such as hashcat or john the ripper to retrieve the plain-text password.
+            </span>
+          </div>
+        </div>
+      </div>
 
-  <div id="exploit-tab" class="tab-content active">
-    <p class="subtitle">Check for kerberoastable users or request TGS hashes.</p>
-
-    {% if error %}
-    <div class="notice error">{{ error }}</div>
-    {% elif status_message %}
-    <div class="notice">{{ status_message }}</div>
-    {% endif %}
-
-    <div class="output">
-      <div class="output-row">
-        <span class="label">Username</span>
-        <span class="value">{{ creds.username or '—' }}</span>
-      </div>
-      <div class="output-row">
-        <span class="label">Password</span>
-        <span class="value">{{ '*' * (creds.password|length) if creds.password else '—' }}</span>
-      </div>
-      <div class="output-row">
-        <span class="label">NTLM Hash</span>
-        <span class="value">{{ '*' * (creds.ntlm_hash|length) if creds.ntlm_hash else '—' }}</span>
-      </div>
-      <div class="output-row">
-        <span class="label">Domain</span>
-        <span class="value">{{ creds.domain or '—' }}</span>
-      </div>
-      <div class="output-row">
-        <span class="label">DC IP Address</span>
-        <span class="value">{{ creds.dc_ip or '—' }}</span>
-      </div>
-    </div>
-
-    <form method="POST" class="form">
-      {% if creds.password and creds.ntlm_hash %}
-      <div class="field">
-        <label>Auth Method</label>
-        <label>
-          <input type="radio" name="auth_method" value="password" {% if auth_method != 'ntlm' %}checked{% endif %} />
-          Password
-        </label>
-        <label>
-          <input type="radio" name="auth_method" value="ntlm" {% if auth_method == 'ntlm' %}checked{% endif %} />
-          NTLM Hash
-        </label>
-      </div>
+      {% if results %}
+        {% if action == 'exploit' %}
+        {% if vault_next_step %}
+        <div class="notice success vault-next-step">
+          <span>Hashes saved to Password Vault.</span>
+          <a class="btn small" href="{{ url_for('main.vault') }}">Open Vault</a>
+        </div>
+        <div class="output">
+          {% for entry in results %}
+          <div class="output-row stacked">
+            <div style="display: flex; justify-content: space-between; width: 100%; gap: 1rem; margin-bottom: 6px;">
+              <span class="label">{{ entry.username }}</span>
+              <span class="value" style="color: var(--muted);">{{ entry.timestamp or '—' }}</span>
+            </div>
+            <pre class="result-box" style="margin: 0; width: 100%;">{{ entry.hash }}</pre>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <pre class="result-box">{{ results | join('\n') }}</pre>
+        {% endif %}
+        {% else %}
+        <pre class="result-box">{{ results | join('\n') }}</pre>
+        {% endif %}
       {% else %}
-      <input type="hidden" name="auth_method" value="{{ 'ntlm' if creds.ntlm_hash else 'password' }}" />
+      <div style="text-align: center; padding: 40px 20px; color: var(--muted);">
+        <p style="font-size: 0.9rem; margin: 0;">No results yet. Run a check or exploit to populate results.</p>
+      </div>
       {% endif %}
-
-      <div class="actions">
-        <button class="btn secondary" name="action" value="check">
-          Check for Kerberoasting
-        </button>
-        <button class="btn" name="action" value="exploit">
-          Exploit Kerberoasting
-        </button>
-      </div>
-    </form>
-  </div>
-
-  <div id="info-tab" class="tab-content">
-    <div class="info-panel">
-      <div class="info-header">
-        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
-        <h2>About Kerberoasting</h2>
-      </div>
-      <p class="info-text">
-        Kerberoasting is an Active Directory attack technique that targets service accounts with Service Principal Names (SPNs). Any authenticated domain user can request service tickets for these accounts — no administrative privileges are required, as this behavior is a normal feature of Microsoft's Kerberos implementation. It is not an exploit of a vulnerability, but rather an abuse of the design combined with weak or poorly managed service account passwords. The ticket is encrypted with the service account's password, allowing an attacker to extract it and attempt offline cracking. Because service account passwords are often old, weak, and not regularly rotated, they may be easier to recover. If compromised, these accounts may have elevated privileges or even local administrator rights on certain systems, enabling lateral or vertical movement within the network.
-      </p>
-    </div>
-  </div>
-
-  <div id="rec-tab" class="tab-content">
-    <div class="info-panel">
-      <div class="info-header">
-        <svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>
-        <h2>Recommendation</h2>
-      </div>
-      <p class="info-text">
-        Use strong, long passwords for all service accounts and ensure they are rotated regularly, or preferably replace them with Group Managed Service Accounts (gMSAs) that automatically manage and rotate passwords.
-      </p>
-    </div>
-  </div>
-</section>
-
-
-
-<section class="card result-card">
-  <div class="card-header">
-  <svg viewBox="0 0 24 24">
-    <path d="M3 5h18v2H3V5zm0 6h18v2H3v-2zm0 6h18v2H3v-2z"/>
-  </svg>
-
-  <div class="header-with-tooltip">
-    <h1>Kerberoasting Results</h1>
-    <!-- Output tips -->
-    <div class="tooltip-container">
-      <span class="info-icon">?</span>
-      <span class="tooltip-text">
-        Collected hash can be cracked using tools such as hashcat or john the ripper to retrieve the plain-text password.
-      </span>
-    </div>
+    </section>
   </div>
 </div>
-  <!-- result of the exploit -->
-{% if results %}
-  {% if action == 'exploit' %}
-  <div class="output">
-    {% for entry in results %}
-    <div class="output-row" style="align-items: flex-start; flex-direction: column; gap: 0.5rem;">
-      <div style="display: flex; justify-content: space-between; width: 100%; gap: 1rem;">
-        <span class="label">{{ entry.username }}</span>
-        <span class="value">{{ entry.timestamp or '—' }}</span>
-      </div>
-      <div style="display: flex; width: 100%; gap: 0.75rem; flex-wrap: wrap; align-items: flex-start;">
-        <pre class="result-box" style="flex: 1 1 320px; margin: 0; white-space: pre-wrap; word-break: break-all;">{{ entry.hash }}</pre>
-      </div>
-    </div>
-    {% endfor %}
-  </div>
-  {% else %}
-  <pre class="result-box">{{ results | join('\n') }}</pre>
-  {% endif %}
-{% endif %}
-</section>
+
 {% endblock %}

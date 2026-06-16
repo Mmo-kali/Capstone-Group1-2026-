@@ -316,7 +316,12 @@ def _resolve_auth_method(creds, requested):
     return "ntlm", None
 
 
+def _has_vault_material(results):
+    return any(isinstance(entry, dict) and entry.get("hash") for entry in results or [])
+
+
 def _render_exploit(template, creds, results, error, status_message, action, **extra):
+    extra.setdefault("vault_next_step", _has_vault_material(results))
     return render_template(
         template,
         creds=creds,
@@ -809,6 +814,7 @@ def zerologon():
     error = None
     status_message = None
     action = None
+    vault_next_step = False
     selected_restore_profile = None
     restore_use_profile = False
 
@@ -866,6 +872,7 @@ def zerologon():
                         creds.get("dc_ip"),
                         no_pass=True,
                     )
+                    vault_next_step = _has_vault_material(dcsync_results)
                     results = results + ["", "DCSync output:"] + format_dcsync_results(dcsync_results)
             else:
                 results = check_zerologon(dc_name, creds["dc_ip"])
@@ -881,6 +888,8 @@ def zerologon():
         active_profile=active_profile,
         selected_restore_profile=None,
         restore_use_profile=restore_use_profile,
+        dc_name=dc_name,
+        vault_next_step=vault_next_step,
     )
 
 

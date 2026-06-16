@@ -33,13 +33,15 @@
   <form method="GET" class="form" style="margin-bottom: 16px;">
     <div class="field" style="max-width: 360px;">
       <label for="vault-user-select">Select user</label>
-      <select id="vault-user-select" name="username" class="input" onchange="this.form.submit()">
-        {% for user in users %}
-        <option value="{{ user.username }}" {% if selected_username == user.username %}selected{% endif %}>
-          {{ user.username }}
-        </option>
-        {% endfor %}
-      </select>
+      <div class="select-wrapper">
+        <select id="vault-user-select" name="username" class="input" onchange="this.form.submit()">
+          {% for user in users %}
+          <option value="{{ user.username }}" {% if selected_username == user.username %}selected{% endif %}>
+            {{ user.username }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
     </div>
   </form>
 

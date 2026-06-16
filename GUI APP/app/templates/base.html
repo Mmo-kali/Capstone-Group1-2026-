@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -12,77 +12,116 @@
   <body>
     <div class="app-shell">
       <header class="app-header">
-        <div class="header-icon">
-          <svg viewBox="0 0 24 24"><path d="M20.5 3l-.16.03L15 5.1 9 3 3.36 4.9c-.21.07-.36.25-.36.48V20.5c0 .28.22.5.5.5l.16-.03L9 18.9l6 2.1 5.64-1.9c.21-.07.36-.25.36-.48V3.5c0-.28-.22-.5-.5-.5zM15 19l-6-2.11V5l6 2.11V19z"/></svg>
+        <div class="header-left">
+          <button class="sidebar-toggle" id="sidebar-toggle" aria-label="Toggle sidebar" title="Toggle sidebar">
+            <svg viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
+          </button>
+          <div class="header-icon">
+            <svg viewBox="0 0 24 24"><path d="M20.5 3l-.16.03L15 5.1 9 3 3.36 4.9c-.21.07-.36.25-.36.48V20.5c0 .28.22.5.5.5l.16-.03L9 18.9l6 2.1 5.64-1.9c.21-.07.36-.25.36-.48V3.5c0-.28-.22-.5-.5-.5zM15 19l-6-2.11V5l6 2.11V19z"/></svg>
+          </div>
+          <div class="brand">AutoMapper</div>
         </div>
-        <div class="brand">AutoMapper</div>
-        <div class="tagline">Active Directory Exploitation Tool</div>
+        <div class="header-right">
+          <button class="theme-toggle" id="theme-toggle" aria-label="Toggle theme" title="Toggle dark/light mode">
+            <svg viewBox="0 0 24 24" class="theme-icon-dark">
+              <path d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
+            </svg>
+            <svg viewBox="0 0 24 24" class="theme-icon-light">
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+            </svg>
+          </button>
+          <div class="status-badge">
+            <span class="status-dot"></span>
+            <span>Ready</span>
+          </div>
+        </div>
       </header>
 
       <div class="app-body">
-        <aside class="sidebar">
-          <div class="nav-section">
-            <div class="nav-section-title">Configuration</div>
-          </div>
-          <a
-            href="{{ url_for('main.index') }}"
-            class="nav-item {% if request.endpoint == 'main.index' %}active{% endif %}"
-          >
-            <svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
-            Profile Configuration
-          </a>
-          <a
-            href="{{ url_for('main.user_info') }}"
-            class="nav-item {% if request.endpoint == 'main.user_info' %}active{% endif %}"
-          >
-            <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
-            Asset Information
-          </a>
-          <div class="nav-section">
-            <div class="nav-section-title">Actions</div>
-          </div>
-          <a
-            href="{{ url_for('main.kerberoast') }}"
-            class="nav-item {% if request.endpoint == 'main.exploitation' %}active{% endif %}"
-          >
-            <svg viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-            Kerberoasting
-          </a>
-          <a
-            href="{{ url_for('main.asreproast') }}"
-            class="nav-item {% if request.endpoint == 'main.asreproast' %}active{% endif %}"
-          >
-            <svg viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-            AS-REP Roasting
-          </a>
-          <a
-            href="{{ url_for('main.dcsync') }}"
-            class="nav-item {% if request.endpoint == 'main.dcsync' %}active{% endif %}"
-          >
-            <svg viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-            DCsync Attack
-          </a>
-          <a
-            href="{{ url_for('main.zerologon') }}"
-            class="nav-item {% if request.endpoint == 'main.zerologon' %}active{% endif %}"
-          >
-            <svg viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-            Zerologon
-          </a>
-          <a
-            href="{{ url_for('main.writable') }}"
-            class="nav-item {% if request.endpoint == 'main.writable' %}active{% endif %}"
-          >
-            <svg viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-            DACL
-          </a>
-          <a
-            href="{{ url_for('main.vault') }}"
-            class="nav-item {% if request.endpoint == 'main.vault' %}active{% endif %}"
-          >
-            <svg viewBox="0 0 24 24"><path d="M12 2l4 4h4v14H4V6h4l4-4zm0 3.41L9.41 6h5.18L12 5.41zM6 8v10h12V8H6z"/></svg>
-            Password Vault
-          </a>
+        <aside class="sidebar" id="sidebar">
+          <nav class="sidebar-nav">
+            <div class="nav-section">
+              <div class="nav-section-title">Configuration</div>
+            </div>
+            <a
+              href="{{ url_for('main.index') }}"
+              class="nav-item {% if request.endpoint == 'main.index' %}active{% endif %}"
+              data-label="Profile Configuration"
+              title="Profile Configuration"
+            >
+              <svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+              <span class="nav-label">Profile Configuration</span>
+            </a>
+            <a
+              href="{{ url_for('main.user_info') }}"
+              class="nav-item {% if request.endpoint == 'main.user_info' %}active{% endif %}"
+              data-label="Asset Information"
+              title="Asset Information"
+            >
+              <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+              <span class="nav-label">Asset Information</span>
+            </a>
+            <div class="nav-section">
+              <div class="nav-section-title">Actions</div>
+            </div>
+            <a
+              href="{{ url_for('main.kerberoast') }}"
+              class="nav-item {% if request.endpoint == 'main.exploitation' %}active{% endif %}"
+              data-label="Kerberoasting"
+              title="Kerberoasting"
+            >
+              <svg viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+              <span class="nav-label">Kerberoasting</span>
+            </a>
+            <a
+              href="{{ url_for('main.asreproast') }}"
+              class="nav-item {% if request.endpoint == 'main.asreproast' %}active{% endif %}"
+              data-label="AS-REP Roasting"
+              title="AS-REP Roasting"
+            >
+              <svg viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+              <span class="nav-label">AS-REP Roasting</span>
+            </a>
+            <a
+              href="{{ url_for('main.dcsync') }}"
+              class="nav-item {% if request.endpoint == 'main.dcsync' %}active{% endif %}"
+              data-label="DCsync Attack"
+              title="DCsync Attack"
+            >
+              <svg viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+              <span class="nav-label">DCsync Attack</span>
+            </a>
+            <a
+              href="{{ url_for('main.zerologon') }}"
+              class="nav-item {% if request.endpoint == 'main.zerologon' %}active{% endif %}"
+              data-label="Zerologon"
+              title="Zerologon"
+            >
+              <svg viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+              <span class="nav-label">Zerologon</span>
+            </a>
+            <a
+              href="{{ url_for('main.writable') }}"
+              class="nav-item {% if request.endpoint == 'main.writable' %}active{% endif %}"
+              data-label="DACL"
+              title="DACL"
+            >
+              <svg viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+              <span class="nav-label">DACL</span>
+            </a>
+            <a
+              href="{{ url_for('main.vault') }}"
+              class="nav-item {% if request.endpoint == 'main.vault' %}active{% endif %} {% if vault_next_step and request.endpoint != 'main.vault' %}next-step{% endif %}"
+              data-label="Password Vault"
+              title="Password Vault"
+            >
+              <svg viewBox="0 0 24 24"><path d="M12 2l4 4h4v14H4V6h4l4-4zm0 3.41L9.41 6h5.18L12 5.41zM6 8v10h12V8H6z"/></svg>
+              <span class="nav-label">Password Vault</span>
+              {% if vault_next_step and request.endpoint != 'main.vault' %}
+              <span class="nav-pill">Next</span>
+              {% endif %}
+            </a>
+          </nav>
         </aside>
 
         <main class="app-main">

