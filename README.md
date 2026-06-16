@@ -130,3 +130,37 @@ Added UI improvements for group pills, tooltips, and warnings to improve visibil
 _Commit references (last 7 days):_  
 - [Delete sessionresume_SagDRCBg](https://github.com/Mmo-kali/Capstone-Group1-2026-/commit/896086d7ee6be4133087e1d109f8e8f4eeb139aa)  
 - [Update .gitignore](https://github.com/Mmo-kali/Capstone-Group1-2026-/commit/72e3a0eadfd255b69ecd03a85095068f0e79d72f)
+
+---
+
+## Week 7 - (2026-06-15 to 2026-06-21)
+
+### UI upgrade implemented across the Flask application
+- Updated main route handling in `app/routes/main.py`.
+- Overhauled shared styling in `app/static/css/style.css`.
+- Added frontend interaction updates in `app/static/js/script.js`.
+
+### Attack workflow pages refreshed
+- Redesigned templates for:
+  - AS-REP Roast
+  - DCSync
+  - Kerberoast
+  - Writable Objects
+  - Zerologon
+  - Vault
+- Updated `base.html` and `index.html` to improve shared layout and homepage presentation.
+
+### Supporting backend modules adjusted
+- Modified:
+  - `app/utils/asreproast.py`
+  - `app/utils/dcsync.py`
+  - `app/utils/kerberoast.py`
+  - `app/utils/zerologon.py`
+- These backend updates appear to support the revised interface and workflow behavior.
+
+### Project artifacts updated
+- Updated local SQLite database file: `app/db/app.db`.
+- Regenerated Python cache files as part of the commit.
+
+### Commit references (last 7 days)
+- [UI upgrade](https://github.com/Mmo-kali/Capstone-Group1-2026-/commit/0ded0d35ce2d8bb6593081ec24f2d09c0ec81939)
