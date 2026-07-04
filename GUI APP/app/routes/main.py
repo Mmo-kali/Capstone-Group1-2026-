@@ -1,5 +1,6 @@
 """Main routes for the Flask application."""
 
+import ast
 import re
 from datetime import datetime, timezone
 import subprocess
@@ -473,21 +474,68 @@ def _parse_bloodyad_members(output):
     if not output:
         return []
 
-    members = []
+    raw_values = []
+    collecting_members = False
+
     for line in output.splitlines():
         match = re.search(r"member\s*[:=]\s*(.+)", line, re.IGNORECASE)
-        if not match:
+        if match:
+            collecting_members = True
+            raw_values.append(match.group(1).strip())
             continue
-        dn_value = match.group(1).strip().strip("[]")
-        dn_value = dn_value.strip().strip("\"").strip("'")
+
+        # Some bloodyAD versions print additional values beneath "member:"
+        # without repeating the attribute name.
+        if collecting_members and line[:1].isspace():
+            continuation = line.strip()
+            if continuation:
+                raw_values.append(continuation)
+            continue
+
+        if collecting_members and line.strip():
+            collecting_members = False
+
+    members = []
+    for raw_value in raw_values:
+        dn_values = []
+
+        # bloodyAD renders multi-valued attributes as a Python-style list.
+        # Treating that whole list as one DN silently retained only its first
+        # member.
+        if raw_value.startswith("[") and raw_value.endswith("]"):
+            try:
+                parsed = ast.literal_eval(raw_value)
+                if isinstance(parsed, (list, tuple, set)):
+                    dn_values = list(parsed)
+            except (SyntaxError, ValueError):
+                # Keep the legacy fallback for output from older bloodyAD
+                # versions that is list-like but not a valid Python literal.
+                dn_values = re.findall(r"['\"]([^'\"]+)['\"]", raw_value)
+
+        if not dn_values:
+            # Current bloodyAD versions join multi-valued attributes with
+            # semicolons: "member: <DN>; <DN>; <DN>".
+            dn_values = [
+                value.strip("[]").strip().strip("\"").strip("'")
+                for value in raw_value.split(";")
+                if value.strip()
+            ]
+
+        members.extend(dn_values)
+
+    names = []
+    for dn_value in members:
+        if isinstance(dn_value, bytes):
+            dn_value = dn_value.decode("utf-8", errors="replace")
+        dn_value = str(dn_value).strip()
         if not dn_value:
             continue
         first_rdn = dn_value.split(",", 1)[0]
         name = clean_dn_name(first_rdn.strip())
         if name and name.lower() != "domain admins":
-            members.append(name)
+            names.append(name)
 
-    return sorted(set(members))
+    return sorted(set(names), key=str.casefold)
 
 
 def _is_container_dn(distinguished_name):
