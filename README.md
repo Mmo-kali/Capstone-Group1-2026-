@@ -164,3 +164,14 @@ _Commit references (last 7 days):_
 
 ### Commit references (last 7 days)
 - [UI upgrade](https://github.com/Mmo-kali/Capstone-Group1-2026-/commit/0ded0d35ce2d8bb6593081ec24f2d09c0ec81939)
+
+--- 
+## Week 8 - (2026-06-28 to 2026-07-04)
+- Fixed the asset information to display information about all user groups.
+- DB update to add schema for admin info. 
+- Updated the Admin information to display in an organized format.
+
+### Latest Commit
+- [DB Update](https://github.com/Mmo-kali/Capstone-Group1-2026-/commit/9cd2615e5868ef7c3b0594a264c45a25e2fc80c3)
+- [minor fix: fix domain admin collection issue](https://github.com/Mmo-kali/Capstone-Group1-2026-/commit/7335265cd3df51dfb62df0163db962ff7a6c82e6)
+
