@@ -6,6 +6,8 @@ from datetime import datetime, timezone
 import subprocess
 
 from flask import render_template, request
+from ldap3 import NTLM, Connection, Server
+from ldap3.core.exceptions import LDAPException
 
 from . import main_bp
 from ..forms.user_form import UserForm
@@ -277,6 +279,83 @@ def _get_creds():
     if not active_profile:
         return {}
     return get_profile(active_profile) or {}
+
+
+def _normalize_domain(value):
+    return (value or "").strip().lower()
+
+
+def _domain_from_hash(hash_value):
+    hash_value = hash_value or ""
+
+    kerberoast_match = re.search(r"\$krb5tgs\$\d+\$\*?[^$]*\$([^$]+)\$", hash_value)
+    if kerberoast_match:
+        return _normalize_domain(kerberoast_match.group(1))
+
+    asrep_match = re.search(r"\$krb5asrep\$\d+\$[^@:$]+@([^:$]+)", hash_value)
+    if asrep_match:
+        return _normalize_domain(asrep_match.group(1))
+
+    return ""
+
+
+def _infer_vault_domain(vault_user):
+    if not vault_user:
+        return ""
+    for hash_field in ("kerberos_hash", "asrep_hash"):
+        domain = _domain_from_hash(vault_user.get(hash_field))
+        if domain:
+            return domain
+    return ""
+
+
+def _profile_for_domain(domain):
+    domain = _normalize_domain(domain)
+    if not domain:
+        return None
+    for profile in fetch_profiles().values():
+        if _normalize_domain(profile.get("domain")) == domain:
+            return profile
+    return None
+
+
+def _verify_ldap_bind(username, password, vault_user=None):
+    inferred_domain = _infer_vault_domain(vault_user)
+    creds = _profile_for_domain(inferred_domain)
+    if inferred_domain and not creds:
+        return False, f"No saved profile found for {inferred_domain}."
+    if not creds:
+        creds = _get_creds()
+    dc_host = (creds.get("dc_ip") or creds.get("dc_fqdn") or "").strip()
+    domain = _normalize_domain(creds.get("domain"))
+    username = (username or "").strip()
+    password = password or ""
+
+    if not username or not password:
+        return False, "No cracked password is available to verify."
+    if not dc_host or not domain:
+        return False, "Please select an active profile with a domain and domain controller."
+
+    bind_user = username if "\\" in username or "@" in username else f"{domain}\\{username}"
+    conn = None
+    try:
+        server = Server(dc_host, port=389, use_ssl=False, connect_timeout=5)
+        conn = Connection(
+            server,
+            user=bind_user,
+            password=password,
+            authentication=NTLM,
+            auto_bind=True,
+            receive_timeout=8,
+        )
+        return True, f"LDAP bind verified for {bind_user} on {dc_host}."
+    except LDAPException as exc:
+        return False, f"LDAP bind failed for {bind_user} on {dc_host}: {exc}"
+    except Exception as exc:
+        return False, f"LDAP bind failed for {bind_user} on {dc_host}: {exc}"
+    finally:
+        if conn and conn.bound:
+            conn.unbind()
 
 
 def _missing_creds(creds):
@@ -1156,7 +1235,7 @@ def user_info():
                 for key in ("username", "domain", "password")
                 if not creds.get(key)
             ]
-            dc_host = creds.get("dc_fqdn") or creds.get("dc_ip")
+            dc_host = creds.get("dc_ip") or creds.get("dc_fqdn")
             if missing or not dc_host:
                 error = "Please submit credentials and domain settings first."
                 return render_template(
@@ -1392,6 +1471,14 @@ def vault():
                             status_message = f"No hashes cracked for {username}."
                     except (HashcatRunnerError, subprocess.TimeoutExpired) as exc:
                         error = f"Cracking failed: {exc}"
+        elif action == "verify_ldap":
+            target = next((user for user in users if user["username"] == username), None)
+            password = target.get("password") if target else None
+            verified, message = _verify_ldap_bind(username, password, target)
+            if verified:
+                status_message = message
+            else:
+                error = message
         elif action == "flush":
             clear_vault()
             users = []

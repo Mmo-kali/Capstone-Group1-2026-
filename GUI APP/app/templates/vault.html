@@ -25,10 +25,6 @@
   <div class="notice">{{ status_message }}</div>
   {% endif %}
 
-  {% if cracked_lines %}
-  <pre class="result-box" style="margin-top: 12px;">{{ cracked_lines | join('\n') }}</pre>
-  {% endif %}
-
   {% if users %}
   <form method="GET" class="form" style="margin-bottom: 16px;">
     <div class="field" style="max-width: 360px;">
@@ -46,6 +42,16 @@
   </form>
 
   {% if selected_user %}
+  <div style="display: flex; justify-content: flex-end; width: 100%; margin: -8px 0 12px;">
+    {% if selected_user.password %}
+    <form method="POST" style="margin: 0;">
+      <input type="hidden" name="username" value="{{ selected_user.username }}">
+      <button class="btn small secondary" name="action" value="verify_ldap" type="submit">
+        Verify LDAP Bind
+      </button>
+    </form>
+    {% endif %}
+  </div>
   <div class="output">
     <div class="output-row" style="align-items: flex-start; flex-direction: column; gap: 0.75rem;">
       <div style="display: flex; justify-content: space-between; width: 100%; gap: 1rem; flex-wrap: wrap;">
