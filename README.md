@@ -175,3 +175,29 @@ _Commit references (last 7 days):_
 - [DB Update](https://github.com/Mmo-kali/Capstone-Group1-2026-/commit/9cd2615e5868ef7c3b0594a264c45a25e2fc80c3)
 - [minor fix: fix domain admin collection issue](https://github.com/Mmo-kali/Capstone-Group1-2026-/commit/7335265cd3df51dfb62df0163db962ff7a6c82e6)
 
+---
+## Week 9 - (2026-07-05 to 2026-07-11)
+
+### Credential verification added to Vault workflow
+- Implemented LDAP-based credential validation from the Vault after hash cracking.
+- Added domain/profile inference logic to map cracked users to the correct saved AD profile.
+- Added LDAP bind verification using `ldap3` with NTLM authentication in backend route handling.
+
+### Vault page action and UX updates
+- Added a new Vault action button to verify cracked credentials for the selected user.
+- Updated button/action wording from **"Verify LDAP Bind"** to **"Verify Credential"** for clearer UI messaging.
+- Updated success/failure response messages to use credential-verification terminology.
+
+### Backend and dependency updates
+- Updated `app/routes/main.py` with:
+  - credential verification helper flow
+  - vault domain inference from Kerberoast/AS-REP hash formats
+  - profile lookup and LDAP bind checks
+- Updated `app/templates/vault.html` to support the new verification action.
+- Added `ldap3>=2.9` to `requirements.txt`.
+
+### Commit references (last 7 days)
+- [minor change: added credential check using ldap bind](https://github.com/Mmo-kali/Capstone-Group1-2026-/commit/2e43593f4c41ef2318cb2e091d584e7b6f8105dd)
+- [minor update: button update](https://github.com/Mmo-kali/Capstone-Group1-2026-/commit/300d5a05dbcda67670862c5416f92f5c499349f8)
+
+---
