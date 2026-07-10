@@ -348,11 +348,11 @@ def _verify_ldap_bind(username, password, vault_user=None):
             auto_bind=True,
             receive_timeout=8,
         )
-        return True, f"LDAP bind verified for {bind_user} on {dc_host}."
+        return True, f"Credential verified for {bind_user} on {dc_host}."
     except LDAPException as exc:
-        return False, f"LDAP bind failed for {bind_user} on {dc_host}: {exc}"
+        return False, f"Credential verification failed for {bind_user} on {dc_host}: {exc}"
     except Exception as exc:
-        return False, f"LDAP bind failed for {bind_user} on {dc_host}: {exc}"
+        return False, f"Credential verification failed for {bind_user} on {dc_host}: {exc}"
     finally:
         if conn and conn.bound:
             conn.unbind()
