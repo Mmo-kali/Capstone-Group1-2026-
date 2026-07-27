@@ -21,7 +21,7 @@
   </div>
 
   <div id="dacl-exploit-tab" class="tab-content active">
-    <p class="subtitle">Select a saved profile to list users where the account has GenericAll rights.</p>
+    <p class="subtitle">Select a saved profile to list Domain Users where the account has GenericAll rights.</p>
 
     {% if error %}
     <div class="notice error">{{ error }}</div>
@@ -126,7 +126,7 @@
   <div class="card-header">
     <svg viewBox="0 0 24 24"><path d="M3 5h18v2H3V5zm0 6h18v2H3v-2zm0 6h18v2H3v-2z"/></svg>
     <div class="header-with-tooltip">
-      <h1>GenericAll Targets</h1>
+      <h1>Domain Users with GenericAll</h1>
       <div class="tooltip-container">
         <span class="info-icon">?</span>
         <span class="tooltip-text">
@@ -170,7 +170,7 @@
     </tbody>
   </table>
   {% else %}
-  <div class="notice">No results yet. Submit the form to see GenericAll targets.</div>
+  <div class="notice">No results yet. Submit the form to see Domain Users with GenericAll rights.</div>
   {% endif %}
 </section>
 

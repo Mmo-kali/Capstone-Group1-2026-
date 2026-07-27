@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 import subprocess
 
 from flask import render_template, request
-from ldap3 import NTLM, Connection, Server
+from ldap3 import NTLM, SUBTREE, Connection, Server
 from ldap3.core.exceptions import LDAPException
 
 from . import main_bp
@@ -690,6 +690,70 @@ def _parse_genericall_targets(output, *, current_username=None):
 
     return filtered
 
+
+def _get_domain_users(creds, auth_method):
+    """Return sAMAccountNames belonging directly to the Domain Users group."""
+    dc_host = (creds.get("dc") or creds.get("dc_ip") or creds.get("dc_fqdn") or "").strip()
+    domain = (creds.get("domain") or "").strip()
+    username = (creds.get("username") or "").strip()
+    domain_dn = domain_to_dn(domain)
+    if not dc_host or not domain_dn or not username:
+        return None, "Missing LDAP connection information."
+
+    password = (creds.get("password") or "").strip()
+    if auth_method == "ntlm":
+        ntlm_hash = (creds.get("ntlm_hash") or "").strip()
+        password = f"aad3b435b51404eeaad3b435b51404ee:{ntlm_hash}"
+
+    bind_user = username if "\\" in username or "@" in username else f"{domain}\\{username}"
+    # Domain Users is the domain-relative group with RID 513. AD records
+    # primary-group membership in primaryGroupID rather than memberOf.
+    search_filter = (
+        "(&(objectCategory=person)(objectClass=user)(primaryGroupID=513))"
+    )
+    conn = None
+    try:
+        server = Server(dc_host, port=389, use_ssl=False, connect_timeout=5)
+        conn = Connection(
+            server,
+            user=bind_user,
+            password=password,
+            authentication=NTLM,
+            auto_bind=True,
+            receive_timeout=8,
+        )
+        conn.search(
+            search_base=domain_dn,
+            search_filter=search_filter,
+            search_scope=SUBTREE,
+            attributes=["sAMAccountName"],
+        )
+        users = {
+            str(entry.sAMAccountName).strip().casefold()
+            for entry in conn.entries
+            if "sAMAccountName" in entry and str(entry.sAMAccountName).strip()
+        }
+        return users, None
+    except Exception as exc:
+        return None, f"Unable to retrieve Domain Users membership: {exc}"
+    finally:
+        if conn and conn.bound:
+            conn.unbind()
+
+
+def _domain_user_targets(output, creds, auth_method):
+    targets = _parse_genericall_targets(
+        output,
+        current_username=creds.get("username"),
+    )
+    domain_users, membership_error = _get_domain_users(creds, auth_method)
+    if membership_error:
+        return [], membership_error
+    return [
+        target for target in targets
+        if target.casefold() in domain_users
+    ], None
+
 # Index
 @main_bp.route("/", methods=["GET", "POST"])
 def index():
@@ -1142,10 +1206,11 @@ def writable():
                 )
                 if refresh_result.returncode == 0:
                     output = refresh_result.stdout or refresh_result.stderr
-                    results = _parse_genericall_targets(
-                        output,
-                        current_username=creds.get("username"),
+                    results, membership_error = _domain_user_targets(
+                        output, creds, auth_method
                     )
+                    if membership_error:
+                        error = membership_error
         else:
             auth_method, auth_error = _resolve_auth_method(
                 creds,
@@ -1188,11 +1253,12 @@ def writable():
                     error = f"bloodyAD failed: {message}"
                 else:
                     output = result.stdout or result.stderr
-                    results = _parse_genericall_targets(
-                        output,
-                        current_username=creds.get("username"),
+                    results, membership_error = _domain_user_targets(
+                        output, creds, auth_method
                     )
-                    if not results:
+                    if membership_error:
+                        error = membership_error
+                    elif not results:
                         status_message = "No GenericAll targets detected."
 
     return render_template(
